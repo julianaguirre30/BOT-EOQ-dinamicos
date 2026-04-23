@@ -1,0 +1,44 @@
+[
+  {
+    "id": 1,
+    "label": "completo",
+    "text": "Una empresa debe planificar sus pedidos para 5 períodos. La demanda es: P1=40, P2=60, P3=30, P4=50 y P5=20 unidades. Cada vez que emite un pedido incurre en un costo de preparación de $100. El costo de almacenamiento es de $2 por unidad por período. No se permiten faltantes y el inventario inicial es 0. Determinar la política óptima de pedidos.",
+    "expected_bot_behavior": "resolver"
+  },
+  {
+    "id": 2,
+    "label": "criollo",
+    "text": "Che, tengo ventas distintas cada mes y no sé si me conviene comprar todo junto o ir comprando de a poco. Para los próximos 5 meses voy a necesitar 25, 40, 35, 20 y 50 unidades. Cada vez que hago un pedido me cobran 80 de gestión, y guardar stock me sale 3 por unidad por mes. Arranco sin stock. ¿Cómo me conviene pedir?",
+    "expected_bot_behavior": "resolver"
+  },
+  {
+    "id": 3,
+    "label": "ambiguo",
+    "text": "Tengo demandas de 30, 45, 20 y 60. Hacer un pedido sale caro y guardar también tiene costo. ¿Cuál es la mejor política?",
+    "expected_bot_behavior": "repreguntar"
+  },
+  {
+    "id": 4,
+    "label": "inconsistente",
+    "text": "Demanda por períodos: 50, -20, 40, 30. Costo de pedido: 100. Costo de almacenamiento: 2. No se permiten faltantes. Inventario inicial: 0.",
+    "expected_bot_behavior": "rechazar_por_inconsistencia"
+  },
+  {
+    "id": 5,
+    "label": "fuera_de_dominio",
+    "text": "Quiero calcular cuánto conviene producir por día cuando la demanda es incierta y depende del clima. Tengo una probabilidad de 30% de vender mucho, 50% de vender normal y 20% de vender poco. Además hay faltantes probabilísticos.",
+    "expected_bot_behavior": "rechazar_fuera_de_dominio"
+  },
+  {
+    "id": 6,
+    "label": "con_setup",
+    "text": "Para 6 períodos, la demanda estimada es 20, 45, 35, 60, 30 y 25 unidades. El costo de preparación no es constante: en los períodos 1 a 6 vale $90, $120, $80, $140, $100 y $110 respectivamente. El costo de almacenamiento es de $3 por unidad por período. No se permiten faltantes e inventario inicial 0. Hallar cuándo conviene pedir y cuánto pedir en cada período.",
+    "expected_bot_behavior": "resolver"
+  },
+  {
+    "id": 7,
+    "label": "sin_setup",
+    "text": "Una planta debe satisfacer la siguiente demanda en 4 períodos: P1=40, P2=50, P3=30, P4=60. No existe costo fijo de preparación. El costo unitario de producción en cada período es: c1=5, c2=6, c3=7 y c4=8. El costo de almacenamiento es 1 por unidad por período. No se permiten faltantes y el inventario inicial es 0. Determinar cuánto producir en cada período para minimizar el costo total.",
+    "expected_bot_behavior": "resolver"
+  }
+]

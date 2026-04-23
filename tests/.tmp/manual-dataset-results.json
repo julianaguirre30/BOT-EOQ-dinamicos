@@ -1,0 +1,289 @@
+[
+  {
+    "id": 1,
+    "label": "completo",
+    "expected": "resolver",
+    "actualMode": "clarify",
+    "actualReason": "missing_critical",
+    "studentMessage": "Falta al menos un dato crítico antes de resolver el EOQ.",
+    "validationErrors": [
+      "missing_holding_cost",
+      "missing_setup_cost"
+    ],
+    "validationWarnings": [
+      "lead_time_defaulted_to_zero"
+    ],
+    "defaultsApplied": [
+      "lead_time=0"
+    ],
+    "extractedValues": {
+      "demands": [
+        40,
+        60,
+        30,
+        50,
+        20
+      ],
+      "setup_cost": 100,
+      "holding_cost": 2,
+      "initial_inventory": 0
+    },
+    "missingCriticalFields": [],
+    "taxonomyTags": [
+      {
+        "family": "inventory",
+        "topic": "eoq",
+        "variant": "standard",
+        "branch": "with_setup",
+        "status": "supported",
+        "notes": []
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "label": "criollo",
+    "expected": "resolver",
+    "actualMode": "solved",
+    "studentMessage": "Resolví el caso como EOQ determinístico con costo fijo de preparación/pedido y te dejo el plan completo con la explicación para estudiar.",
+    "solverFamily": "exact_with_setup",
+    "branch": "with_setup",
+    "validationErrors": [],
+    "validationWarnings": [
+      "lead_time_defaulted_to_zero"
+    ],
+    "defaultsApplied": [
+      "lead_time=0"
+    ],
+    "extractedValues": {
+      "demand": [
+        25,
+        40,
+        35,
+        20,
+        50
+      ],
+      "orderingCost": 80,
+      "holdingCost": 3,
+      "initialInventory": 0
+    },
+    "missingCriticalFields": [],
+    "taxonomyTags": [
+      {
+        "family": "inventory",
+        "topic": "eoq",
+        "variant": "standard",
+        "branch": "with_setup",
+        "status": "supported",
+        "notes": []
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "label": "ambiguo",
+    "expected": "repreguntar",
+    "actualMode": "clarify",
+    "actualReason": "material_ambiguity",
+    "studentMessage": "Necesito saber si el costo fijo corresponde a preparación interna o a pedido/reposición sin setup.",
+    "validationErrors": [
+      "material_branch_ambiguity",
+      "missing_holding_cost"
+    ],
+    "validationWarnings": [
+      "lead_time_defaulted_to_zero"
+    ],
+    "defaultsApplied": [
+      "lead_time=0"
+    ],
+    "extractedValues": {
+      "demands": [
+        30,
+        45,
+        20,
+        60
+      ]
+    },
+    "missingCriticalFields": [
+      "costo de pedido",
+      "costo de almacenamiento"
+    ],
+    "taxonomyTags": [
+      {
+        "family": "inventory",
+        "topic": "eoq",
+        "variant": "standard",
+        "branch": "no_setup",
+        "status": "supported",
+        "notes": []
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "label": "inconsistente",
+    "expected": "rechazar_por_inconsistencia",
+    "actualMode": "clarify",
+    "actualReason": "inconsistency",
+    "studentMessage": "Hay datos inconsistentes o imposibles en el planteo; corregilos y lo resolvemos.",
+    "validationErrors": [
+      "invalid_demand_schedule"
+    ],
+    "validationWarnings": [
+      "branch_inferred_from_setup_signal",
+      "lead_time_defaulted_to_zero"
+    ],
+    "defaultsApplied": [
+      "lead_time=0"
+    ],
+    "extractedValues": {
+      "demand": [
+        50,
+        -20,
+        40,
+        30
+      ],
+      "orderingCost": 100,
+      "holdingCost": 2,
+      "backloggingAllowed": false,
+      "initialInventory": 0
+    },
+    "missingCriticalFields": [],
+    "taxonomyTags": [
+      {
+        "family": "inventory",
+        "topic": "eoq",
+        "variant": "standard",
+        "branch": "no_setup",
+        "status": "supported",
+        "notes": []
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "label": "fuera_de_dominio",
+    "expected": "rechazar_fuera_de_dominio",
+    "actualMode": "clarify",
+    "actualReason": "material_ambiguity",
+    "studentMessage": "Necesito saber si el costo fijo corresponde a preparación interna o a pedido/reposición sin setup.",
+    "validationErrors": [
+      "material_branch_ambiguity",
+      "missing_demand_rate",
+      "missing_holding_cost"
+    ],
+    "validationWarnings": [
+      "low_interpretation_confidence",
+      "lead_time_defaulted_to_zero"
+    ],
+    "defaultsApplied": [
+      "lead_time=0"
+    ],
+    "extractedValues": {},
+    "missingCriticalFields": [
+      "branch",
+      "demandRate",
+      "holdingCost"
+    ],
+    "taxonomyTags": [
+      {
+        "family": "inventory",
+        "topic": "eoq",
+        "variant": "standard",
+        "status": "ambiguous",
+        "notes": [
+          "interpreter_schema_mismatch",
+          "interpreter_[\n  {\n    \"received\": \"omitted\",\n    \"code\": \"invalid_enum_value\",\n    \"options\": [\n      \"with_setup\",\n      \"no_setup\"\n    ],\n    \"path\": [\n      \"branchCandidate\"\n    ],\n    \"message\": \"Invalid enum value. Expected 'with_setup' | 'no_setup', received 'omitted'\"\n  }\n]"
+        ]
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "label": "con_setup",
+    "expected": "resolver",
+    "actualMode": "clarify",
+    "actualReason": "missing_critical",
+    "studentMessage": "Falta al menos un dato crítico antes de resolver el EOQ.",
+    "validationErrors": [
+      "missing_setup_cost"
+    ],
+    "validationWarnings": [
+      "lead_time_defaulted_to_zero"
+    ],
+    "defaultsApplied": [
+      "lead_time=0"
+    ],
+    "extractedValues": {
+      "demand": [
+        20,
+        45,
+        35,
+        60,
+        30,
+        25
+      ],
+      "setupCost": [
+        90,
+        120,
+        80,
+        140,
+        100,
+        110
+      ],
+      "holdingCost": 3,
+      "initialInventory": 0
+    },
+    "missingCriticalFields": [],
+    "taxonomyTags": [
+      {
+        "family": "inventory",
+        "topic": "eoq",
+        "variant": "standard",
+        "branch": "with_setup",
+        "status": "supported",
+        "notes": []
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "label": "sin_setup",
+    "expected": "resolver",
+    "actualMode": "clarify",
+    "actualReason": "missing_critical",
+    "studentMessage": "Falta al menos un dato crítico antes de resolver el EOQ.",
+    "validationErrors": [
+      "missing_demand_rate"
+    ],
+    "validationWarnings": [
+      "lead_time_defaulted_to_zero"
+    ],
+    "defaultsApplied": [
+      "lead_time=0"
+    ],
+    "extractedValues": {
+      "P1": 40,
+      "P2": 50,
+      "P3": 30,
+      "P4": 60,
+      "c1": 5,
+      "c2": 6,
+      "c3": 7,
+      "c4": 8,
+      "h": 1,
+      "I0": 0
+    },
+    "missingCriticalFields": [],
+    "taxonomyTags": [
+      {
+        "family": "inventory",
+        "topic": "eoq",
+        "variant": "standard",
+        "branch": "no_setup",
+        "status": "supported",
+        "notes": []
+      }
+    ]
+  }
+]
