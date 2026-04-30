@@ -7,6 +7,7 @@ import {
   RoutingResult,
   SolverInput,
   SolverOutput,
+  ThreadContext,
 } from '../contracts/eoq';
 
 const describeBranch = (branch: SolverInput['branch']): string =>
@@ -156,13 +157,149 @@ const summarizeDetectedDemand = (solverInput?: SolverInput): string => {
   return `Demanda agregada usada por ahora: ${solverInput.demandRate}.`;
 };
 
+const normalizeFollowUpText = (value: string | undefined): string =>
+  (value ?? '')
+    .toLocaleLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
+
+const extractAskedPeriod = (question: string): number | undefined => {
+  const match = question.match(/periodo\s+(\d+)/);
+  return match ? Number(match[1]) : undefined;
+};
+
+const buildDemandSourceExplanation = (solverInput: SolverInput): { result: string; justification: string[] } => ({
+  result:
+    solverInput.periodDemands !== undefined
+      ? `Usé la demanda validada del problema original: [${solverInput.periodDemands.join(', ')}].`
+      : `Usé la demanda validada del problema original: ${solverInput.demandRate}.`,
+  justification: [
+    solverInput.periodDemands !== undefined
+      ? 'Ese cronograma ya había quedado validado y fue el que alimentó la solución guardada.'
+      : 'Ese valor ya había quedado validado y fue el que alimentó la solución guardada.',
+  ],
+});
+
+const buildAlgorithmExplanation = (
+  solverInput: SolverInput,
+  solverOutput: SolverOutput,
+): { result: string; justification: string[] } => ({
+  result: `Usé ${describeSolvedAlgorithm(solverInput, solverOutput)} para la solución exacta guardada.`,
+  justification: [`En el solve quedó visible la ecuación: ${solverOutput.equations[0]}.`],
+});
+
+const buildPeriodPlanExplanation = (
+  question: string,
+  solverOutput: SolverOutput,
+): { result: string; justification: string[] } | undefined => {
+  const askedPeriod = extractAskedPeriod(question);
+  if (!askedPeriod) {
+    return undefined;
+  }
+
+  const directOrder = solverOutput.policy.replenishmentPlan.find((step) => step.period === askedPeriod);
+  if (directOrder) {
+    return {
+      result:
+        directOrder.coversThroughPeriod === askedPeriod
+          ? `Sí se compra en el período ${askedPeriod}: ese lote repone ${directOrder.quantity} unidades para cubrir solo ese período.`
+          : `Sí se compra en el período ${askedPeriod}: ese lote repone ${directOrder.quantity} unidades y cubre hasta el ${directOrder.coversThroughPeriod}.`,
+      justification: ['Por eso ese período sí aparece como punto de reposición en el plan guardado.'],
+    };
+  }
+
+  const coveringOrder = solverOutput.policy.replenishmentPlan.find(
+    (step) => step.period < askedPeriod && step.coversThroughPeriod >= askedPeriod,
+  );
+  if (!coveringOrder) {
+    return undefined;
+  }
+
+  const demandForPeriod = solverOutput.mathematicalArtifacts.demandSchedule[askedPeriod - 1];
+
+  return {
+    result: `No se compra en el período ${askedPeriod} porque el pedido del período ${coveringOrder.period} ya cubre hasta el ${coveringOrder.coversThroughPeriod}.`,
+    justification: [
+      demandForPeriod !== undefined
+        ? `La demanda validada del período ${askedPeriod} es ${demandForPeriod} y ya estaba cubierta en ese lote.`
+        : 'Ese período ya estaba cubierto por un lote anterior en la solución guardada.',
+    ],
+  };
+};
+
+const buildResolvedFollowUpExplanation = (
+  solverInput: SolverInput,
+  solverOutput: SolverOutput,
+  followUpQuestion: string | undefined,
+): { result: string; justification: string[] } => {
+  const normalizedQuestion = normalizeFollowUpText(followUpQuestion);
+
+  if (
+    normalizedQuestion.includes('demanda') &&
+    ['por que', 'porque', 'pq', 'de donde', 'uso', 'usaste'].some((cue) => normalizedQuestion.includes(cue))
+  ) {
+    return buildDemandSourceExplanation(solverInput);
+  }
+
+  if (
+    normalizedQuestion.includes('formula') ||
+    normalizedQuestion.includes('algoritmo') ||
+    normalizedQuestion.includes('ecuacion')
+  ) {
+    return buildAlgorithmExplanation(solverInput, solverOutput);
+  }
+
+  if (normalizedQuestion.includes('periodo')) {
+    const periodExplanation = buildPeriodPlanExplanation(normalizedQuestion, solverOutput);
+    if (periodExplanation) {
+      return periodExplanation;
+    }
+  }
+
+  return {
+    result: summarizeDetectedDemand(solverInput).replace(/^Demanda agregada usada por ahora:/, 'demanda').replace(/^Horizonte determinístico por períodos:/, 'horizonte'),
+    justification: ['Como la pregunta sigue sobre el mismo resultado, conviene explicar la decisión sin repetir toda la card estructurada.'],
+  };
+};
+
+const buildResolvedFollowUpPedagogy = (
+  solverInput: SolverInput,
+  solverOutput: SolverOutput,
+  followUpQuestion?: string,
+): PedagogicalArtifacts => {
+  const explanation = buildResolvedFollowUpExplanation(solverInput, solverOutput, followUpQuestion);
+
+  return ({
+  interpretation: [
+    'Este turno queda como seguimiento del problema ya resuelto.',
+  ],
+  model: [
+    `Sostengo el mismo modelo ${describeBranch(solverInput.branch)} del caso original.`,
+  ],
+  algorithm: [
+    `Reutilizo la solución ya calculada con ${describeSolvedAlgorithm(solverInput, solverOutput)}.`,
+  ],
+  result: [
+    explanation.result,
+  ],
+  procedure: [
+    'Recuperé la solución guardada y respondí el seguimiento sin abrir un solve nuevo.',
+  ],
+  justification: explanation.justification,
+  });
+};
+
 const buildSolvedPedagogy = (
   interpretation: ProblemInterpretation,
   algorithmSelection: AlgorithmSelectionTrace,
   routingResult: RoutingResult,
   solverInput: SolverInput,
   solverOutput: SolverOutput,
-): PedagogicalArtifacts => ({
+  threadContext?: ThreadContext,
+  followUpQuestion?: string,
+): PedagogicalArtifacts => threadContext?.phase === 'resolved_follow_up'
+  ? buildResolvedFollowUpPedagogy(solverInput, solverOutput, followUpQuestion)
+  : ({
   interpretation: [
     `Interpreté el caso como ${describeBranch(solverInput.branch)}.`,
     summarizeDetectedDemand(solverInput),
@@ -262,23 +399,37 @@ export const assembleStudyResponse = ({
   algorithmSelection,
   solverInput,
   solverOutput,
+  threadContext,
+  followUpQuestion,
 }: {
   interpretation: ProblemInterpretation;
   routingResult: RoutingResult;
   algorithmSelection?: AlgorithmSelectionTrace;
   solverInput?: SolverInput;
   solverOutput?: SolverOutput;
+  threadContext?: ThreadContext;
+  followUpQuestion?: string;
 }): FinalResponseEnvelope => {
   const solved = routingResult.decision === 'solve' && solverInput && solverOutput;
   const resolvedAlgorithmSelection = algorithmSelection ?? routingResult.trace;
   const pedagogicalArtifacts = solved
-    ? buildSolvedPedagogy(interpretation, resolvedAlgorithmSelection, routingResult, solverInput, solverOutput)
+    ? buildSolvedPedagogy(
+        interpretation,
+        resolvedAlgorithmSelection,
+        routingResult,
+        solverInput,
+        solverOutput,
+        threadContext,
+        followUpQuestion,
+      )
     : buildBlockedPedagogy(interpretation, routingResult);
 
   return FinalResponseEnvelopeSchema.parse({
     mode: solved ? 'solved' : routingResult.decision === 'refuse' ? 'refuse' : 'clarify',
     studentMessage: solved
-      ? `Resolví el caso como ${describeBranch(solverOutput.branch)} y te dejo el plan completo con la explicación para estudiar.`
+      ? threadContext?.phase === 'resolved_follow_up'
+        ? 'seguimos sobre el mismo resultado ya resuelto: te respondo el seguimiento sin recalcular ni repetir toda la solución completa.'
+        : `Resolví el caso como ${describeBranch(solverOutput.branch)} y te dejo el plan completo con la explicación para estudiar.`
       : routingResult.refusal?.message ??
         routingResult.clarificationRequest?.question ??
         'Este caso no puede resolverse todavía dentro del MVP.',
@@ -291,6 +442,7 @@ export const assembleStudyResponse = ({
     solverOutput,
     algorithmSelection: resolvedAlgorithmSelection,
     pedagogicalArtifacts,
+    threadContext,
     internalTrace: resolvedAlgorithmSelection,
   });
 };

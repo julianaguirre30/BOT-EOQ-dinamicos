@@ -14,8 +14,9 @@ describe('EOQ contract schemas', () => {
       sessionId: 'session-1',
     });
 
-    expect(result.visibleDefaults).toEqual([]);
-    expect(result.pendingCriticalFields).toEqual([]);
+    expect(result.problemCount).toBe(0);
+    expect(result.activeProblemId).toBeUndefined();
+    expect(result.activeProblem).toBeUndefined();
     expect(result.turnCount).toBe(0);
   });
 
@@ -173,10 +174,15 @@ describe('EOQ contract schemas', () => {
           silverMealIncluded: false,
           why: ['branch unresolved'],
         },
+        threadContext: {
+          phase: 'resolved_follow_up',
+          hasPriorSolution: true,
+        },
       }),
     );
 
     expect('internalTrace' in publicEnvelope).toBe(false);
+    expect(publicEnvelope.threadContext?.phase).toBe('resolved_follow_up');
   });
 
   it('accepts a refusal envelope with explicit invalid classification', () => {

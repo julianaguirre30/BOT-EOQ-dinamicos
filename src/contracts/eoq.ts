@@ -285,6 +285,12 @@ export const FinalResponseEnvelopeSchema = z.object({
   solverOutput: SolverOutputSchema.optional(),
   algorithmSelection: AlgorithmSelectionTraceSchema,
   pedagogicalArtifacts: PedagogicalArtifactsSchema,
+  threadContext: z
+    .object({
+      phase: z.enum(['active', 'resolved_follow_up']),
+      hasPriorSolution: z.boolean(),
+    })
+    .optional(),
   internalTrace: AlgorithmSelectionTraceSchema,
 });
 export type FinalResponseEnvelope = z.infer<typeof FinalResponseEnvelopeSchema>;
@@ -298,11 +304,11 @@ export const toPublicResponseEnvelope = (
   response: FinalResponseEnvelope,
 ): PublicResponseEnvelope => PublicResponseEnvelopeSchema.parse(response);
 
-export const SessionStateSchema = z.object({
-  sessionId: z.string().min(1),
-  latestInterpretation: ProblemInterpretationSchema.optional(),
-  latestNormalization: NormalizationResultSchema.optional(),
-  latestValidation: ValidationResultSchema.optional(),
+export const ProblemThreadStateSchema = z.object({
+  problemId: z.string().min(1),
+  interpretation: ProblemInterpretationSchema.optional(),
+  normalization: NormalizationResultSchema.optional(),
+  validation: ValidationResultSchema.optional(),
   pendingClarification: ClarificationRequestSchema.optional(),
   latestRefusal: RefusalSchema.optional(),
   latestSelectionTrace: AlgorithmSelectionTraceSchema.optional(),
@@ -310,6 +316,26 @@ export const SessionStateSchema = z.object({
   lastSolverOutput: SolverOutputSchema.optional(),
   visibleDefaults: z.array(z.string()).default([]),
   pendingCriticalFields: z.array(z.string()).default([]),
+});
+export type ProblemThreadState = z.infer<typeof ProblemThreadStateSchema>;
+
+export type ProblemThreadTransitionReason =
+  | 'initial_problem'
+  | 'follow_up'
+  | 'resolved_follow_up'
+  | 'explicit_reset'
+  | 'detected_new_problem';
+
+export type ThreadContext = {
+  phase: 'active' | 'resolved_follow_up';
+  hasPriorSolution: boolean;
+};
+
+export const SessionStateSchema = z.object({
+  sessionId: z.string().min(1),
+  activeProblemId: z.string().min(1).optional(),
+  problemCount: z.number().int().min(0).default(0),
+  activeProblem: ProblemThreadStateSchema.optional(),
   turnCount: z.number().int().min(0).default(0),
 });
 export type SessionState = z.infer<typeof SessionStateSchema>;
@@ -342,7 +368,6 @@ export type ProblemExampleFixture = z.infer<typeof ProblemExampleFixtureSchema>;
 export const createEmptySessionState = (sessionId: string): SessionState =>
   SessionStateSchema.parse({
     sessionId,
-    visibleDefaults: [],
-    pendingCriticalFields: [],
+    problemCount: 0,
     turnCount: 0,
   });

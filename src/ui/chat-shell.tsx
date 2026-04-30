@@ -5,6 +5,20 @@ import { CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from '
 import { ChatTurnResponse } from '../app/runtime/chat-handler';
 import { PublicResponseEnvelope, SolverInput } from '../contracts/eoq';
 
+export const buildChatTurnRequest = ({
+  sessionId,
+  userText,
+  pendingResetProblem,
+}: {
+  sessionId?: string;
+  userText: string;
+  pendingResetProblem: boolean;
+}): { sessionId?: string; userText: string; resetProblem?: true } => ({
+  ...(sessionId ? { sessionId } : {}),
+  userText,
+  ...(pendingResetProblem ? { resetProblem: true as const } : {}),
+});
+
 export type ChatEntry =
   | { id: string; role: 'user'; text: string }
   | { id: string; role: 'assistant'; text: string; payload: ChatTurnResponse };
@@ -350,6 +364,19 @@ const formatPlanStep = (period: number, quantity: number, coversThroughPeriod: n
     : `Período ${period}: reponer ${quantity} unidades para cubrir hasta el período ${coversThroughPeriod}.`;
 
 export const ChatResponseCard = ({ response }: { response: PublicResponseEnvelope }) => {
+  if (response.threadContext?.phase === 'resolved_follow_up') {
+    return (
+      <section style={shellStyles.card}>
+        <div style={shellStyles.panel}>
+          <div style={shellStyles.tag}>Seguimiento del problema resuelto</div>
+          <ul>
+            {[response.pedagogicalArtifacts.result[0], ...response.pedagogicalArtifacts.justification].map((item) => <li key={item}>{item}</li>)}
+          </ul>
+        </div>
+      </section>
+    );
+  }
+
   const detectedData = useMemo(() => buildDetectedData(response), [response]);
   const attentionPanel = useMemo(() => buildAttentionPanel(response), [response]);
   const identifiedModel = describeBranch(
@@ -438,17 +465,21 @@ export const ChatFeed = ({ entries }: { entries: ChatEntry[] }) => {
 export const ChatComposer = ({
   draft,
   sessionId,
+  pendingResetProblem,
   error,
   isSubmitting,
   onChange,
   onSubmit,
+  onResetProblem,
 }: {
   draft: string;
   sessionId?: string;
+  pendingResetProblem: boolean;
   error: string | null;
   isSubmitting: boolean;
   onChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onResetProblem: () => void;
 }) => (
   <form style={shellStyles.inputWrap} onSubmit={onSubmit} data-testid="chat-composer">
     <label htmlFor="chat-input" style={{ display: 'block', marginBottom: '10px', fontWeight: 700 }}>
@@ -462,10 +493,20 @@ export const ChatComposer = ({
       placeholder="Ejemplo: tengo demanda por períodos [40,20,40], setup 50 y holding 1..."
     />
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginTop: '16px', flexWrap: 'wrap' as const }}>
-      <span style={shellStyles.muted}>{sessionId ? `Sesión activa: ${sessionId}` : 'Todavía no arrancaste una sesión.'}</span>
-      <button type="submit" style={shellStyles.button} disabled={isSubmitting}>
-        {isSubmitting ? 'Pensando...' : 'Enviar mensaje'}
-      </button>
+      <div style={{ display: 'grid', gap: '8px' }}>
+        <span style={shellStyles.muted}>{sessionId ? `Sesión activa: ${sessionId}` : 'Todavía no arrancaste una sesión.'}</span>
+        {pendingResetProblem ? <span style={shellStyles.muted}>El próximo envío va a arrancar un problema nuevo.</span> : null}
+      </div>
+      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' as const }}>
+        {sessionId ? (
+          <button type="button" style={{ ...shellStyles.button, background: 'linear-gradient(135deg, #0f766e, #2563eb)' }} onClick={onResetProblem}>
+            Nuevo problema
+          </button>
+        ) : null}
+        <button type="submit" style={shellStyles.button} disabled={isSubmitting}>
+          {isSubmitting ? 'Pensando...' : 'Enviar mensaje'}
+        </button>
+      </div>
     </div>
     {error ? <p style={{ color: '#fca5a5', marginTop: '12px' }}>{error}</p> : null}
   </form>
@@ -477,6 +518,7 @@ export const ChatShell = () => {
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingResetProblem, setPendingResetProblem] = useState(false);
   const feedViewportRef = useRef<HTMLDivElement | null>(null);
   const shouldAutoFollowRef = useRef(true);
 
@@ -517,7 +559,7 @@ export const ChatShell = () => {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, userText }),
+        body: JSON.stringify(buildChatTurnRequest({ sessionId, userText, pendingResetProblem })),
       });
       const payload = (await response.json()) as ChatTurnResponse | { error?: string };
 
@@ -536,6 +578,7 @@ export const ChatShell = () => {
         },
       ]);
       setDraft('');
+      setPendingResetProblem(false);
     } catch (submissionError) {
       setError(submissionError instanceof Error ? submissionError.message : 'Falló el envío del mensaje.');
     } finally {
@@ -561,10 +604,12 @@ export const ChatShell = () => {
           <ChatComposer
             draft={draft}
             sessionId={sessionId}
+            pendingResetProblem={pendingResetProblem}
             error={error}
             isSubmitting={isSubmitting}
             onChange={setDraft}
             onSubmit={handleSubmit}
+            onResetProblem={() => setPendingResetProblem(true)}
           />
         </section>
       </div>

@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import { PublicResponseEnvelopeSchema } from '../src/contracts/eoq';
-import { ChatComposer, ChatFeed, ChatResponseCard, ChatEntry } from '../src/ui/chat-shell';
+import { ChatComposer, ChatFeed, ChatResponseCard, ChatEntry, buildChatTurnRequest } from '../src/ui/chat-shell';
 
 const solvedResponse = PublicResponseEnvelopeSchema.parse({
   mode: 'solved',
@@ -377,6 +377,23 @@ const outOfDomainResponse = PublicResponseEnvelopeSchema.parse({
   },
 });
 
+const resolvedFollowUpResponse = PublicResponseEnvelopeSchema.parse({
+  ...solvedResponse,
+  studentMessage: 'seguimos sobre el mismo resultado ya resuelto: te respondo el seguimiento sin recalcular ni repetir toda la solución completa.',
+  pedagogicalArtifacts: {
+    interpretation: ['seguimiento'],
+    model: ['mismo modelo resuelto'],
+    algorithm: ['programación dinámica exacta'],
+    result: ['No se compra en el período 8 porque el pedido del período 6 ya cubre hasta el 8.'],
+    procedure: ['reutilicé la solución guardada'],
+    justification: ['La demanda validada del período 8 es 10 y ya estaba cubierta en ese lote.'],
+  },
+  threadContext: {
+    phase: 'resolved_follow_up',
+    hasPriorSolution: true,
+  },
+});
+
 describe('ChatResponseCard', () => {
   it('renders a student-friendly card with normalized data and the full replenishment plan', () => {
     const markup = renderToStaticMarkup(<ChatResponseCard response={solvedResponse} />);
@@ -428,6 +445,15 @@ describe('ChatResponseCard', () => {
     expect(markup).not.toContain('<li>setupCost</li>');
     expect(markup).not.toContain('Datos faltantes');
   });
+
+  it('renders resolved follow-up cards with the specific explanation instead of the generic full-plan card', () => {
+    const markup = renderToStaticMarkup(<ChatResponseCard response={resolvedFollowUpResponse} />);
+
+    expect(markup).toContain('Seguimiento del problema resuelto');
+    expect(markup).toContain('No se compra en el período 8 porque el pedido del período 6 ya cubre hasta el 8.');
+    expect(markup).toContain('La demanda validada del período 8 es 10 y ya estaba cubierta en ese lote.');
+    expect(markup).not.toContain('Plan completo: 2 pedido(s)/lote(s) en el horizonte.');
+  });
 });
 
 describe('ChatFeed', () => {
@@ -461,10 +487,12 @@ describe('ChatComposer', () => {
       <ChatComposer
         draft="Necesito revisar el setup por período"
         sessionId="session-42"
+        pendingResetProblem={true}
         error={null}
         isSubmitting={true}
         onChange={() => undefined}
         onSubmit={(event) => event.preventDefault()}
+        onResetProblem={() => undefined}
       />,
     );
 
@@ -472,6 +500,29 @@ describe('ChatComposer', () => {
     expect(markup).toContain('position:sticky');
     expect(markup).toContain('bottom:0');
     expect(markup).toContain('Sesión activa: session-42');
+    expect(markup).toContain('Nuevo problema');
+    expect(markup).toContain('El próximo envío va a arrancar un problema nuevo');
     expect(markup).toContain('Pensando...');
+  });
+
+  it('builds the next request with resetProblem while preserving the active session id', () => {
+    expect(buildChatTurnRequest({
+      sessionId: 'session-42',
+      userText: 'Quiero arrancar otro caso',
+      pendingResetProblem: true,
+    })).toEqual({
+      sessionId: 'session-42',
+      userText: 'Quiero arrancar otro caso',
+      resetProblem: true,
+    });
+
+    expect(buildChatTurnRequest({
+      sessionId: 'session-42',
+      userText: 'Solo sigo el mismo ejercicio',
+      pendingResetProblem: false,
+    })).toEqual({
+      sessionId: 'session-42',
+      userText: 'Solo sigo el mismo ejercicio',
+    });
   });
 });

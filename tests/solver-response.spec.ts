@@ -220,6 +220,63 @@ describe('algorithm selection and response assembly', () => {
     expect(publicText).toContain('no siempre coincide con lote-por-lote');
   });
 
+  it('answers solved demand-source follow-ups with the validated demand used in the original case', () => {
+    const interpretation = buildInterpretation('complete-with-setup', {
+      normalizedText: 'Caso original resuelto',
+      branchCandidate: 'with_setup',
+      extractedValues: {
+        periodDemands: [40, 20, 40],
+        holdingCost: 1,
+        setupCost: 50,
+        leadTime: 0,
+      },
+    });
+    const routingResult = routeProblemInterpretation(interpretation);
+    const selection = selectAndRunDeterministicSolver(routingResult);
+    const response = assembleStudyResponse({
+      interpretation,
+      routingResult,
+      algorithmSelection: selection.algorithmSelection,
+      solverInput: selection.solverInput,
+      solverOutput: selection.solverOutput,
+      threadContext: { phase: 'resolved_follow_up', hasPriorSolution: true },
+      followUpQuestion: 'por que usaste esa demanda?',
+    });
+    const compactExplanation = [response.pedagogicalArtifacts.result[0], ...response.pedagogicalArtifacts.justification].join(' ');
+
+    expect(compactExplanation).toContain('[40, 20, 40]');
+    expect(compactExplanation).toContain('problema original');
+    expect(compactExplanation).toContain('demanda validada');
+  });
+
+  it('answers solved formula follow-ups with the exact algorithm family and a visible equation', () => {
+    const interpretation = buildInterpretation('complete-with-setup', {
+      normalizedText: 'Caso original resuelto',
+      branchCandidate: 'with_setup',
+      extractedValues: {
+        periodDemands: [40, 20, 40],
+        holdingCost: 1,
+        setupCost: 50,
+        leadTime: 0,
+      },
+    });
+    const routingResult = routeProblemInterpretation(interpretation);
+    const selection = selectAndRunDeterministicSolver(routingResult);
+    const response = assembleStudyResponse({
+      interpretation,
+      routingResult,
+      algorithmSelection: selection.algorithmSelection,
+      solverInput: selection.solverInput,
+      solverOutput: selection.solverOutput,
+      threadContext: { phase: 'resolved_follow_up', hasPriorSolution: true },
+      followUpQuestion: 'que formula o algoritmo usaste?',
+    });
+    const compactExplanation = [response.pedagogicalArtifacts.result[0], ...response.pedagogicalArtifacts.justification].join(' ');
+
+    expect(compactExplanation).toContain('programación dinámica exacta');
+    expect(compactExplanation).toContain('F(t) = min_j');
+  });
+
   it('keeps blocked cases away from solving through the existing routing flow', () => {
     const interpretation = buildInterpretation('ambiguous-branch', {
       extractedValues: {

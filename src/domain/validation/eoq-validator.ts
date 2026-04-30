@@ -3,6 +3,7 @@ import {
   NormalizationResult,
   ProblemInterpretation,
   SolverInput,
+  ThreadContext,
   ValidationResult,
   ValidationResultSchema,
 } from '../../contracts/eoq';
@@ -78,6 +79,7 @@ const buildSolverInput = (input: CanonicalEoqInput): SolverInput => {
 
 export const validateProblemInterpretation = (
   interpretation: ProblemInterpretation,
+  _threadContext?: ThreadContext,
 ): ValidationResult => {
   const normalization = normalizeProblemInterpretation(interpretation);
   return validateCanonicalEoqInput(interpretation, normalization);

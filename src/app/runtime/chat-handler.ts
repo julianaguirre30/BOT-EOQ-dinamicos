@@ -6,6 +6,7 @@ import { PublicResponseEnvelopeSchema, toPublicResponseEnvelope } from '../../co
 export const ChatTurnRequestSchema = z.object({
   sessionId: z.string().min(1).optional(),
   userText: z.string().min(1),
+  resetProblem: z.boolean().optional(),
 });
 export type ChatTurnRequest = z.infer<typeof ChatTurnRequestSchema>;
 
@@ -27,6 +28,7 @@ export const handleChatTurnRequest = async (
   const response = await dependencies.controller.handleTurn({
     sessionId,
     userText: parsed.userText,
+    resetProblem: parsed.resetProblem,
   });
   const publicResponse = toPublicResponseEnvelope(response);
 

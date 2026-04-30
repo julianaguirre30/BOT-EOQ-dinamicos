@@ -8,6 +8,7 @@ import {
   RefusalKind,
   RoutingResult,
   RoutingResultSchema,
+  ThreadContext,
   ValidationResult,
 } from '../../contracts/eoq';
 import { MATERIAL_CONFIDENCE_THRESHOLD, classifyMvpDomain } from '../knowledge/eoq-taxonomy';
@@ -102,6 +103,7 @@ export const routeProblemInterpretationWithValidation = (
   validation: ValidationResult,
   domain = classifyMvpDomain(interpretation),
   normalization = normalizeProblemInterpretation(interpretation),
+  _threadContext?: ThreadContext,
 ): RoutingResult => {
   const invalidReasons = validation.errors.filter(isInvalidValidationError);
 

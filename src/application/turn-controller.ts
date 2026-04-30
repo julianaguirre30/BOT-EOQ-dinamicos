@@ -3,8 +3,12 @@ import {
   InterpretationRequest,
   ProblemInterpretation,
   ProblemInterpretationSchema,
+  ProblemThreadState,
+  RoutingResult,
+  RoutingResultSchema,
   SessionState,
   SessionStateSchema,
+  ThreadContext,
   createEmptySessionState,
 } from '../contracts/eoq';
 import {
@@ -18,8 +22,11 @@ import { SessionStore } from '../session/session-store';
 import { routeProblemInterpretationWithValidation } from '../domain/routing/eoq-router';
 import { selectAndRunDeterministicSolver } from '../domain/solver/algorithm-selector';
 import { validateProblemInterpretation } from '../domain/validation/eoq-validator';
+import { createFreshProblemThread, decideProblemThreadTransition } from './problem-thread-policy';
 
-export type TurnControllerRequest = InterpretationRequest;
+export type TurnControllerRequest = InterpretationRequest & {
+  resetProblem?: boolean;
+};
 
 type TurnControllerDependencies = {
   sessionStore: SessionStore;
@@ -59,12 +66,12 @@ const hasResolvedField = (interpretation: ProblemInterpretation, field: string):
 const mergeRequiredFields = (
   previous: ProblemInterpretation | undefined,
   current: ProblemInterpretation,
-  state: SessionState,
+  activeProblem: ProblemThreadState,
 ): string[] => {
-  const pendingFields = state.pendingClarification?.requiredFields ?? [];
+  const pendingFields = activeProblem.pendingClarification?.requiredFields ?? [];
   const merged = new Set<string>([
     ...(previous?.missingCriticalFields ?? []),
-    ...state.pendingCriticalFields,
+    ...activeProblem.pendingCriticalFields,
     ...pendingFields,
     ...current.missingCriticalFields,
   ]);
@@ -78,12 +85,12 @@ const mergeRequiredFields = (
 export const mergeInterpretationWithSession = (
   previous: ProblemInterpretation | undefined,
   current: ProblemInterpretation,
-  state: SessionState,
+  activeProblem: ProblemThreadState,
 ): ProblemInterpretation => {
   if (!previous) {
     return ProblemInterpretationSchema.parse({
       ...current,
-      missingCriticalFields: mergeRequiredFields(undefined, current, state),
+      missingCriticalFields: mergeRequiredFields(undefined, current, activeProblem),
     });
   }
 
@@ -106,7 +113,36 @@ export const mergeInterpretationWithSession = (
 
   return ProblemInterpretationSchema.parse({
     ...merged,
-    missingCriticalFields: mergeRequiredFields(previous, merged, state),
+    missingCriticalFields: mergeRequiredFields(previous, merged, activeProblem),
+  });
+};
+
+const buildThreadContext = (
+  activeProblem: ProblemThreadState | undefined,
+  transition: ReturnType<typeof decideProblemThreadTransition>,
+): ThreadContext => ({
+  phase: transition.reason === 'resolved_follow_up' ? 'resolved_follow_up' : 'active',
+  hasPriorSolution: activeProblem?.lastSolverOutput !== undefined,
+});
+
+const buildResolvedFollowUpRoutingResult = (activeProblem: ProblemThreadState | undefined): RoutingResult | undefined => {
+  if (
+    !activeProblem?.normalization ||
+    !activeProblem.validation ||
+    !activeProblem.latestSelectionTrace ||
+    !activeProblem.lastSolverInput ||
+    !activeProblem.lastSolverOutput
+  ) {
+    return undefined;
+  }
+
+  return RoutingResultSchema.parse({
+    decision: 'solve',
+    solvable: true,
+    domainStatus: 'in_domain',
+    normalization: activeProblem.normalization,
+    validation: activeProblem.validation,
+    trace: activeProblem.latestSelectionTrace,
   });
 };
 
@@ -128,15 +164,40 @@ export class TurnController {
     const session = (await this.dependencies.sessionStore.get(parsedRequest.sessionId)) ??
       createEmptySessionState(parsedRequest.sessionId);
     const currentInterpretation = await this.interpretSafely(parsedRequest);
-    const interpretation = mergeInterpretationWithSession(
-      session.latestInterpretation,
+    const transition = decideProblemThreadTransition({
+      activeProblem: session.activeProblem,
       currentInterpretation,
-      session,
-    );
-    const validation = this.validator(interpretation);
-    const routingResult = this.router(interpretation, validation);
+      resetProblem: request.resetProblem ?? false,
+    });
+    const activeProblem = transition.kind === 'fresh'
+      ? createFreshProblemThread({ nextProblemNumber: session.problemCount + 1 })
+      : session.activeProblem ?? createFreshProblemThread({ nextProblemNumber: 1 });
+    const threadContext = buildThreadContext(session.activeProblem, transition);
+    const interpretation = threadContext.phase === 'resolved_follow_up'
+      ? activeProblem.interpretation ?? currentInterpretation
+      : mergeInterpretationWithSession(
+          transition.kind === 'continue' ? activeProblem.interpretation : undefined,
+          currentInterpretation,
+          activeProblem,
+        );
+    const validation = threadContext.phase === 'resolved_follow_up'
+      ? activeProblem.validation ?? this.validator(interpretation, threadContext)
+      : this.validator(interpretation, threadContext);
+    const routingResult = threadContext.phase === 'resolved_follow_up'
+      ? buildResolvedFollowUpRoutingResult(activeProblem) ?? this.router(interpretation, validation, undefined, undefined, threadContext)
+      : this.router(interpretation, validation, undefined, undefined, threadContext);
 
-    const response = routingResult.decision === 'solve'
+    const response = threadContext.phase === 'resolved_follow_up' && activeProblem.lastSolverInput && activeProblem.lastSolverOutput
+        ? this.renderer({
+            interpretation,
+            routingResult,
+            algorithmSelection: activeProblem.latestSelectionTrace ?? routingResult.trace,
+            solverInput: activeProblem.lastSolverInput,
+            solverOutput: activeProblem.lastSolverOutput,
+            threadContext,
+            followUpQuestion: currentInterpretation.normalizedText,
+          })
+      : routingResult.decision === 'solve'
       ? (() => {
           const selection = this.solverSelector(routingResult);
           return this.renderer({
@@ -145,12 +206,13 @@ export class TurnController {
             algorithmSelection: selection.algorithmSelection,
             solverInput: selection.solverInput,
             solverOutput: selection.solverOutput,
+            threadContext,
           });
         })()
-      : this.renderer({ interpretation, routingResult });
+      : this.renderer({ interpretation, routingResult, threadContext });
 
     await this.dependencies.sessionStore.set(
-      this.buildNextSessionState(session, interpretation, response),
+      this.buildNextSessionState(session, activeProblem, interpretation, response, transition.kind === 'fresh'),
     );
 
     return response;
@@ -170,24 +232,33 @@ export class TurnController {
 
   private buildNextSessionState(
     previous: SessionState,
+    activeProblem: ProblemThreadState,
     interpretation: ProblemInterpretation,
     response: FinalResponseEnvelope,
+    isFreshThread: boolean,
   ): SessionState {
-    return SessionStateSchema.parse({
-      sessionId: previous.sessionId,
-      latestInterpretation: interpretation,
-      latestNormalization: response.normalization,
-      latestValidation: response.validation,
+    const nextActiveProblem: ProblemThreadState = {
+      problemId: activeProblem.problemId,
+      interpretation,
+      normalization: response.normalization,
+      validation: response.validation,
       pendingClarification: response.mode === 'clarify' ? response.clarificationRequest : undefined,
       latestRefusal: response.refusal,
       latestSelectionTrace: response.internalTrace,
-      lastSolverInput: response.solverInput ?? previous.lastSolverInput,
-      lastSolverOutput: response.solverOutput ?? previous.lastSolverOutput,
+      lastSolverInput: response.solverInput ?? (isFreshThread ? undefined : activeProblem.lastSolverInput),
+      lastSolverOutput: response.solverOutput ?? (isFreshThread ? undefined : activeProblem.lastSolverOutput),
       visibleDefaults: response.validation?.defaultsApplied ?? [],
       pendingCriticalFields:
         response.mode === 'clarify'
           ? (response.clarificationRequest?.requiredFields ?? []).map((field) => normalizeFieldName(field))
           : [],
+    };
+
+    return SessionStateSchema.parse({
+      sessionId: previous.sessionId,
+      activeProblemId: nextActiveProblem.problemId,
+      problemCount: isFreshThread ? previous.problemCount + 1 : Math.max(previous.problemCount, 1),
+      activeProblem: nextActiveProblem,
       turnCount: previous.turnCount + 1,
     });
   }
