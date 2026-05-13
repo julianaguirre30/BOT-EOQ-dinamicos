@@ -1,8 +1,8 @@
 import { ReactNode } from 'react';
 
 export const metadata = {
-  title: 'EOQ tutor MVP',
-  description: 'Conversational EOQ tutor with structured solver responses.',
+  title: 'EOQ tutor',
+  description: 'Resuelve tus problemas de EOQ dinámico con la ayuda del tutor.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

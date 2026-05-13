@@ -178,7 +178,7 @@ export const ChatResponseCard = ({ response }: { response: PublicResponseEnvelop
 };
 
 export const ChatShell = () => {
-  const [draft, setDraft] = useState('Tengo una demanda anual de 1200 unidades, costo de mantener 5 por unidad por año y no hay costo de preparación. ¿Cómo conviene reponer?');
+  const [draft, setDraft] = useState('');
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -256,9 +256,9 @@ export const ChatShell = () => {
       <div style={shellStyles.container}>
         <section style={shellStyles.hero}>
           <span style={shellStyles.tag}>EOQ tutor MVP</span>
-          <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', margin: '14px 0 10px' }}>Un chat continuo, claro y sin perder el hilo.</h1>
+          <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', margin: '14px 0 10px' }}>Tutor EOQ.</h1>
           <p style={{ ...shellStyles.muted, fontSize: '1.05rem', maxWidth: '760px' }}>
-            Escribí tu problema EOQ y seguí la conversación en un único flujo. Cada respuesta del tutor mantiene la ficha estructurada, pero ahora vive dentro del chat y no como un bloque aislado.
+            Escribí tu problema EOQ y seguí la conversación en un único flujo.
           </p>
         </section>
 
