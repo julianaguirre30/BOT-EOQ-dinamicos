@@ -13,42 +13,42 @@ export const chatComponentStyles = {
     marginTop: '8px',
   },
   tableHeader: {
-    background: 'rgba(79, 70, 229, 0.1)',
-    borderBottom: '1px solid rgba(129, 140, 248, 0.2)',
+    background: 'rgba(16, 185, 129, 0.12)',
+    borderBottom: '1px solid rgba(16, 185, 129, 0.2)',
   },
   tableHeaderCell: {
     padding: '10px 12px',
     textAlign: 'left' as const,
-    fontWeight: 600,
-    color: '#c7d2fe',
+    fontWeight: 700,
+    color: '#065f46',
     fontSize: '0.85rem',
   },
   tableRow: {
-    borderBottom: '1px solid rgba(96, 165, 250, 0.08)',
+    borderBottom: '1px solid rgba(16, 185, 129, 0.14)',
   },
   tableCell: {
     padding: '10px 12px',
-    color: '#f8fafc',
+    color: '#0f172a',
   },
   section: {
     marginTop: '14px',
   },
   sectionTitle: {
     fontSize: '0.9rem',
-    fontWeight: 600,
-    color: '#c7d2fe',
+    fontWeight: 700,
+    color: '#047857',
     marginBottom: '8px',
     textTransform: 'uppercase' as const,
     letterSpacing: '0.5px',
-    opacity: 0.8,
+    opacity: 0.9,
   },
   narrative: {
-    color: '#f8fafc',
+    color: '#0f172a',
     lineHeight: 1.6,
     marginBottom: '4px',
   },
   justification: {
-    color: '#cbd5e1',
+    color: '#334155',
     fontSize: '0.9rem',
     lineHeight: 1.6,
     marginTop: '4px',
@@ -123,7 +123,7 @@ export const KeyValueTable = ({
  * Bullet list component
  */
 export const BulletList = ({ items }: { items: string[] }) => (
-  <ul style={{ margin: '0', paddingLeft: '20px', color: '#f8fafc' }}>
+  <ul style={{ margin: '0', paddingLeft: '20px', color: '#0f172a' }}>
     {items.map((item, idx) => (
       <li key={idx} style={{ marginTop: '4px' }}>
         {item}

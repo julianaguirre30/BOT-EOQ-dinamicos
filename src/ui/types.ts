@@ -5,7 +5,7 @@ import { ChatTurnResponse } from '../app/runtime/chat-handler';
  */
 export type ChatEntry =
   | { id: string; role: 'user'; text: string }
-  | { id: string; role: 'assistant'; text: string; payload: ChatTurnResponse };
+  | { id: string; role: 'assistant'; text: string; payload?: ChatTurnResponse };
 
 /**
  * Detected parameter from user input after parsing

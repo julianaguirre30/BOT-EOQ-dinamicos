@@ -27,26 +27,30 @@ const feedStyles = {
     borderRadius: '22px',
     padding: '14px 16px',
     lineHeight: 1.55,
-    border: '1px solid rgba(148, 163, 184, 0.14)',
-    boxShadow: '0 10px 32px rgba(15, 23, 42, 0.18)',
+    border: '1px solid rgba(16, 185, 129, 0.18)',
+    boxShadow: '0 10px 32px rgba(16, 185, 129, 0.12)',
+    background: '#ffffff',
+    color: '#0f172a',
   } as CSSProperties,
   userBubble: {
     alignSelf: 'flex-end',
-    background: 'linear-gradient(135deg, rgba(126, 34, 206, 0.96), rgba(79, 70, 229, 0.94))',
+    background: 'linear-gradient(135deg, #10b981, #047857)',
+    color: '#ffffff',
   } as CSSProperties,
   assistantBubble: {
-    background: 'rgba(10, 16, 31, 0.94)',
-    borderLeft: '3px solid #60a5fa',
+    background: '#f7fff8',
+    borderLeft: '3px solid #10b981',
+    color: '#0f172a',
   } as CSSProperties,
   emptyState: {
     borderRadius: '24px',
     padding: '18px',
-    background: 'rgba(10, 16, 31, 0.6)',
-    border: '1px dashed rgba(129, 140, 248, 0.24)',
-    color: '#cbd5e1',
+    background: '#f7fff8',
+    border: '1px dashed rgba(16, 185, 129, 0.24)',
+    color: '#0f172a',
   } as CSSProperties,
   muted: {
-    color: '#cbd5e1',
+    color: '#475569',
   } as CSSProperties,
 } as const;
 
@@ -80,7 +84,7 @@ export const ChatFeed = ({ entries }: { entries: ChatEntry[] }) => {
             <strong>{entry.role === 'assistant' ? 'Tutor' : 'Vos'}</strong>
             <p style={{ margin: '8px 0 0' }}>{entry.text}</p>
           </div>
-          {entry.role === 'assistant' ? <ChatResponseCard response={entry.payload.response} /> : null}
+          {entry.role === 'assistant' && entry.payload ? <ChatResponseCard response={entry.payload.response} /> : null}
         </article>
       ))}
     </section>
