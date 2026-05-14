@@ -138,7 +138,7 @@ describe('GroqEoqInterpreter', () => {
 
     expect(result.confidence).toBeLessThan(0.6);
     expect(result.missingCriticalFields).toEqual(
-      expect.arrayContaining(['periodDemands', 'holdingCost', 'setupCost', 'leadTime', 'initialInventory']),
+      expect.arrayContaining(['periodDemands', 'holdingCost', 'setupCost', 'initialInventory']),
     );
     expect(result.issues).toEqual(
       expect.arrayContaining([

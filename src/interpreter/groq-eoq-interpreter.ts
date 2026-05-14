@@ -22,7 +22,6 @@ const DEFAULT_SYSTEM_PROMPT = [
   'Si aparece demanda escalar, devolvela en extractedValues.demandRate.',
   'Si aparece costo de pedido/preparación/setup, devolvelo en extractedValues.setupCost aunque sea 0.',
   'Si aparece costo de mantener/tenencia/almacenaje, devolvelo en extractedValues.holdingCost.',
-  'Si aparece lead time o reposición inmediata/al instante/al toque, devolvé extractedValues.leadTime.',
   'Si aparece inventario o stock inicial, devolvé extractedValues.initialInventory.',
   'Si una pista está presente pero no podés resolver el valor, agregá ese campo a missingCriticalFields, bajá confidence y explicalo en issues.',
   'No omitas números visibles del usuario aunque el caso siga incompleto.',
@@ -84,7 +83,6 @@ const buildUserPrompt = (request: InterpretationRequest): string =>
       demandRate: 'single numeric demand when the user gives an aggregate rate',
       holdingCost: 'numeric holding/carrying/storage cost when explicitly stated',
       setupCost: 'numeric ordering/setup/preparation cost when explicitly stated, including 0',
-      leadTime: 'numeric lead time, or 0 when the user explicitly says immediate replenishment',
       unitCost: 'numeric purchase/production cost only if explicit',
       initialInventory: 'numeric starting inventory/stock if explicit',
     },
@@ -100,7 +98,6 @@ const buildUserPrompt = (request: InterpretationRequest): string =>
       periodDemands: ['enero 120, febrero 90, marzo 110', 'demandas mensuales: 80, 120, 60'],
       setupCost: ['cada pedido cuesta 150', 'cada preparación sale 200', 'sin costo de preparación => setupCost 0'],
       holdingCost: ['mantener cada unidad cuesta 3 por mes', 'tenencia 5 por unidad por año'],
-      leadTime: ['lead time 2 semanas', 'reposición inmediata', 'repone al toque'],
       initialInventory: ['stock inicial 20', 'arranco con 15 unidades'],
     },
     requiredShape: {
@@ -123,7 +120,7 @@ const buildUserPrompt = (request: InterpretationRequest): string =>
         },
       ],
       confidence: 'number between 0 and 1',
-      missingCriticalFields: ['branch | demandRate | periodDemands | holdingCost | setupCost | leadTime | initialInventory | other field names'],
+      missingCriticalFields: ['branch | demandRate | periodDemands | holdingCost | setupCost | initialInventory | other field names'],
       issues: ['brief reasons for ambiguity, missing evidence resolution, or unsupported cues'],
     },
   });

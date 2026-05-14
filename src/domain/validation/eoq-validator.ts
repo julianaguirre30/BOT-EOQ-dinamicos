@@ -21,7 +21,6 @@ const buildSolverInput = (input: CanonicalEoqInput): SolverInput => {
     branch,
     variant,
     holdingCost,
-    leadTime = 0,
     demandRate,
     periodDemands,
     setupCost,
@@ -35,7 +34,6 @@ const buildSolverInput = (input: CanonicalEoqInput): SolverInput => {
       branch,
       variant,
       holdingCost: holdingCost as number,
-      leadTime,
       demandRate,
       periodDemands,
       setupCostByPeriod: setupCostByPeriod as number[],
@@ -47,7 +45,6 @@ const buildSolverInput = (input: CanonicalEoqInput): SolverInput => {
       branch: 'no_setup',
       variant: 'unit_cost_by_period',
       holdingCost: holdingCost as number,
-      leadTime,
       demandRate,
       periodDemands,
       unitCostByPeriod: unitCostByPeriod as number[],
@@ -59,7 +56,6 @@ const buildSolverInput = (input: CanonicalEoqInput): SolverInput => {
       branch,
       variant: 'scalar',
       holdingCost: holdingCost as number,
-      leadTime,
       demandRate,
       periodDemands,
       setupCost: setupCost as number,
@@ -70,7 +66,6 @@ const buildSolverInput = (input: CanonicalEoqInput): SolverInput => {
     branch: 'no_setup',
     variant: 'scalar',
     holdingCost: holdingCost as number,
-    leadTime,
     demandRate,
     periodDemands,
     unitCost,
@@ -239,18 +234,6 @@ export const validateCanonicalEoqInput = (
     pushUnique(errors, 'conflicting_setup_and_no_setup_cost_structure');
   }
 
-  let leadTime = canonicalInput.leadTime;
-
-  if (leadTime === undefined) {
-    leadTime = 0;
-    defaultsApplied.push('lead_time=0');
-    warnings.push('lead_time_defaulted_to_zero');
-  }
-
-  if (leadTime < 0) {
-    pushUnique(errors, 'invalid_lead_time');
-  }
-
   for (const issue of interpretation.issues) {
     const normalized = issue.toLowerCase();
 
@@ -279,9 +262,8 @@ export const validateCanonicalEoqInput = (
     unsupportedReasons.length === 0 &&
     branch !== undefined &&
     (demandRate !== undefined || periodDemands !== undefined) &&
-    holdingCost !== undefined &&
-    leadTime !== undefined
-      ? buildSolverInput({ ...canonicalInput, branch, holdingCost, leadTime })
+    holdingCost !== undefined
+      ? buildSolverInput({ ...canonicalInput, branch, holdingCost })
       : undefined;
 
   const disposition = hasInvalidErrors ? 'invalid' : hasClarifyErrors ? 'clarify' : 'valid';
@@ -292,7 +274,6 @@ export const validateCanonicalEoqInput = (
     canonicalInput: {
       ...canonicalInput,
       branch,
-      leadTime,
     },
     normalizedInput,
     errors,

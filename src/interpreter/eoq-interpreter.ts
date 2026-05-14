@@ -48,7 +48,6 @@ const SCALAR_FIELD_ALIASES = {
     'h',
   ],
   setupCost: ['setupCost', 'setup_cost', 'orderingCost', 'orderCost', 'S', 'K'],
-  leadTime: ['leadTime', 'lead_time'],
   initialInventory: ['initialInventory', 'initial_inventory', 'startingInventory', 'stockInicial'],
 } as const;
 
@@ -127,12 +126,6 @@ const hasSetupCostEvidence = (text: string): boolean =>
     text,
   );
 
-const hasLeadTimeEvidence = (text: string): boolean =>
-  /(lead time|tiempo de reposici[oó]n|tiempo de entrega)[^.\n]{0,40}\d+(?:[.,]\d+)?/iu.test(text) ||
-  /(reposici[oó]n(?:[^.\n]{0,15})?(inmediata|al toque|al instante)|repone al instante|reposición al toque|al toque|al instante|entrega inmediata)/iu.test(
-    text,
-  );
-
 const hasInitialInventoryEvidence = (text: string): boolean =>
   /(inventario inicial|stock inicial|arranco con|empiezo con|parto con)[^.\n]{0,25}\d+(?:[.,]\d+)?/iu.test(
     text,
@@ -169,10 +162,6 @@ const detectUnderExtractedFields = (
 
   if (hasSetupCostEvidence(userText) && !hasScalarExtraction(extractedValues, SCALAR_FIELD_ALIASES.setupCost)) {
     pushUnique(underExtracted, 'setupCost');
-  }
-
-  if (hasLeadTimeEvidence(userText) && !hasScalarExtraction(extractedValues, SCALAR_FIELD_ALIASES.leadTime)) {
-    pushUnique(underExtracted, 'leadTime');
   }
 
   if (

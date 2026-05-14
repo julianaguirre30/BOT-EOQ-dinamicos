@@ -169,7 +169,6 @@ describe('TurnController', () => {
     expect(response.mode).toBe('solved');
     expect(response.algorithmSelection.chosenBranch).toBe('no_setup');
     expect(response.algorithmSelection.solverFamily).toBe('exact_no_setup');
-    expect(response.validation?.defaultsApplied).toContain('lead_time=0');
     expect(response.interpretation.extractedValues).toEqual({
       demandRate: 900,
       holdingCost: 4,
@@ -178,7 +177,6 @@ describe('TurnController', () => {
       branch: 'no_setup',
       demandRate: 900,
       holdingCost: 4,
-      leadTime: 0,
     });
     expect(stored?.activeProblem?.lastSolverOutput?.solverFamily).toBe('exact_no_setup');
     expect(stored?.turnCount).toBe(1);
@@ -259,9 +257,7 @@ describe('TurnController', () => {
       branch: 'no_setup',
       demandRate: 1200,
       holdingCost: 5,
-      leadTime: 0,
     });
-    expect(secondResponse.validation?.defaultsApplied).toContain('lead_time=0');
     expect(resumedState?.activeProblem?.pendingClarification).toBeUndefined();
     expect(resumedState?.activeProblem?.pendingCriticalFields).toEqual([]);
     expect(resumedState?.activeProblem?.interpretation?.extractedValues).toEqual({

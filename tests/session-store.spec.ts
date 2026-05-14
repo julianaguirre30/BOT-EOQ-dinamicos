@@ -38,7 +38,7 @@ describe('InMemorySessionStore', () => {
       activeProblem: {
         problemId: 'problem-1',
         pendingCriticalFields: ['setupCost'],
-        visibleDefaults: ['lead_time=0'],
+        visibleDefaults: [],
       },
       turnCount: 2,
     });
@@ -46,7 +46,7 @@ describe('InMemorySessionStore', () => {
     expect(patched.sessionId).toBe('session-2');
     expect(patched.activeProblemId).toBe('problem-1');
     expect(patched.activeProblem?.pendingCriticalFields).toEqual(['setupCost']);
-    expect(patched.activeProblem?.visibleDefaults).toEqual(['lead_time=0']);
+    expect(patched.activeProblem?.visibleDefaults).toEqual([]);
     expect(patched.turnCount).toBe(2);
   });
 
@@ -84,7 +84,7 @@ describe('InMemorySessionStore', () => {
           issues: [],
         },
         pendingCriticalFields: [],
-        visibleDefaults: ['lead_time=0'],
+        visibleDefaults: [],
       },
     });
 
@@ -93,7 +93,7 @@ describe('InMemorySessionStore', () => {
     expect(state?.problemCount).toBe(1);
     expect(state?.activeProblemId).toBe('problem-1');
     expect(state?.activeProblem?.problemId).toBe('problem-1');
-    expect(state?.activeProblem?.visibleDefaults).toEqual(['lead_time=0']);
+    expect(state?.activeProblem?.visibleDefaults).toEqual([]);
     expect(state?.activeProblem?.interpretation?.extractedValues).toEqual({
       demandRate: 1200,
       holdingCost: 5,
