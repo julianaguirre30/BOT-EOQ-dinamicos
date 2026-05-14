@@ -1,8 +1,9 @@
 import { ReactNode } from 'react';
 
 export const metadata = {
-  title: 'EOQ tutor',
-  description: 'Resuelve tus problemas de EOQ dinámico con la ayuda del tutor.',
+  title: 'Simplex · Asistente de Inventario EOQ',
+  description: 'Calculá el plan óptimo de pedidos con el modelo EOQ dinámico.',
+  icons: { icon: '/logo.png' },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
