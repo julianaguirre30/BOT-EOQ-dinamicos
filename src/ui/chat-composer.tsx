@@ -94,7 +94,7 @@ export const ChatComposer = ({
       style={composerStyles.textarea}
       value={draft}
       onChange={(event) => onChange(event.target.value)}
-      placeholder="Ejemplo: tengo demanda por períodos [40,20,40], setup 50 y holding 1..."
+      placeholder="Ejemplo: Se presentan 3 periodos con una demanda mensual de 60,20,50 y costo de almacenamiento es de $40. El costo de pedido es $45."
     />
     <div style={composerStyles.controls}>
       <div style={composerStyles.statusRow}>

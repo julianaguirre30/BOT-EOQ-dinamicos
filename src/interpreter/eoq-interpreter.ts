@@ -55,6 +55,128 @@ const SERIES_FIELD_ALIASES = {
   periodDemands: ['periodDemands', 'period_demands', 'demandSchedule', 'weeklyDemand', 'demands'],
 } as const;
 
+const normalizeText = (value: string): string =>
+  value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
+
+const parseNumericToken = (value: string): number | undefined => {
+  const parsed = Number.parseFloat(value.replace(/\s+/gu, '').replace(',', '.'));
+
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const parseNumericSeries = (value: string): number[] | undefined => {
+  const tokens = value.replace(/\by\b/giu, ',').split(',').map((token) => token.trim()).filter(Boolean);
+
+  if (tokens.length < 3) {
+    return undefined;
+  }
+
+  const parsed = tokens.map((token) => parseNumericToken(token));
+
+  if (parsed.some((token) => token === undefined)) {
+    return undefined;
+  }
+
+  return parsed as number[];
+};
+
+const recoverPeriodDemands = (text: string): number[] | undefined => {
+  const match = normalizeText(text).match(
+    /(?:demanda(?:s)?|ventas|consumo|requerimiento)[^.\n]{0,40}?(?:de|:)?\s*((?:\d+(?:[.,]\d+)?(?:\s*(?:,|y)\s*\d+(?:[.,]\d+)?)+))/iu,
+  );
+
+  if (!match?.[1]) {
+    return undefined;
+  }
+
+  return parseNumericSeries(match[1]);
+};
+
+const recoverScalarFromCue = (text: string, pattern: RegExp): number | undefined => {
+  const match = normalizeText(text).match(pattern);
+
+  if (!match?.[1]) {
+    return undefined;
+  }
+
+  return parseNumericToken(match[1]);
+};
+
+const recoverObviousExtraction = (
+  userText: string,
+  interpretation: ProblemInterpretation,
+): { interpretation: ProblemInterpretation; recovered: boolean } => {
+  const extractedValues = { ...interpretation.extractedValues };
+  let recovered = false;
+
+  if (extractedValues.periodDemands === undefined) {
+    const recoveredPeriodDemands = recoverPeriodDemands(userText);
+    if (recoveredPeriodDemands !== undefined) {
+      extractedValues.periodDemands = recoveredPeriodDemands;
+      recovered = true;
+    }
+  }
+
+  if (extractedValues.demandRate === undefined && extractedValues.periodDemands === undefined) {
+    const recoveredDemandRate = recoverScalarFromCue(
+      userText,
+      /(?:demanda|ventas|consumo|requerimiento)[^.\n]{0,40}?(\d+(?:[.,]\d+)?)[^.\n]{0,30}(?:al ano|anual|por ano|mensual|por mes|semanal|por semana|por periodo|por per[ií]odo)/iu,
+    );
+
+    if (recoveredDemandRate !== undefined) {
+      extractedValues.demandRate = recoveredDemandRate;
+      recovered = true;
+    }
+  }
+
+  if (extractedValues.holdingCost === undefined) {
+    const recoveredHoldingCost = recoverScalarFromCue(
+      userText,
+      /(?:costo\s+de\s+)?(?:almacenamiento|almacenaje|tenencia|mantenimiento|mantener|guardar|conservar|holding)[^.\n]{0,40}?(\d+(?:[.,]\d+)?)/iu,
+    );
+
+    if (recoveredHoldingCost !== undefined) {
+      extractedValues.holdingCost = recoveredHoldingCost;
+      recovered = true;
+    }
+  }
+
+  if (extractedValues.setupCost === undefined) {
+    const recoveredSetupCost = recoverScalarFromCue(
+      userText,
+      /(?:costo\s+de\s+)?(?:pedido|preparaci[oó]n|setup|orden|reponer|reposici[oó]n)[^.\n]{0,40}?(\d+(?:[.,]\d+)?)/iu,
+    );
+
+    if (recoveredSetupCost !== undefined) {
+      extractedValues.setupCost = recoveredSetupCost;
+      recovered = true;
+    }
+  }
+
+  if (extractedValues.initialInventory === undefined) {
+    const recoveredInitialInventory = recoverScalarFromCue(
+      userText,
+      /(?:inventario\s+inicial|stock\s+inicial|arranco\s+con|empiezo\s+con|parto\s+con)[^.\n]{0,25}?(\d+(?:[.,]\d+)?)/iu,
+    );
+
+    if (recoveredInitialInventory !== undefined) {
+      extractedValues.initialInventory = recoveredInitialInventory;
+      recovered = true;
+    }
+  }
+
+  return {
+    interpretation: ProblemInterpretationSchema.parse({
+      ...interpretation,
+      extractedValues,
+    }),
+    recovered,
+  };
+};
+
 const pushUnique = (collection: string[], value: string) => {
   if (!collection.includes(value)) {
     collection.push(value);
@@ -106,6 +228,10 @@ const hasPeriodDemandEvidence = (text: string): boolean => {
     return true;
   }
 
+  if (/(demanda|ventas|consumo|requerimiento)[^.\n]{0,40}(\d+(?:[.,]\d+)?\s*,\s*\d+(?:[.,]\d+)?\s*,\s*\d+(?:[.,]\d+)?)/iu.test(text)) {
+    return true;
+  }
+
   return /(demanda|ventas|consumo|consume|requerimiento|necesito)[^.\n]{0,60}(mensual(?:es)?|por mes|por período|por periodo|semanal(?:es)?|por semana|por trimestre)[^.\n]{0,80}\d+(?:[.,]\d+)?(?:[^\n]{0,30}\d+(?:[.,]\d+)?){1,}/iu.test(
     text,
   );
@@ -117,7 +243,7 @@ const hasDemandRateEvidence = (text: string): boolean =>
   );
 
 const hasHoldingCostEvidence = (text: string): boolean =>
-  /(mantener|mantenimiento|almacenaje|tenencia|guardar|guardadas|conservar|holding)[^.\n]{0,50}\d+(?:[.,]\d+)?/iu.test(
+  /(mantener|mantenimiento|almacenaje|almacenamiento|tenencia|guardar|guardadas|conservar|holding)[^.\n]{0,50}\d+(?:[.,]\d+)?/iu.test(
     text,
   );
 
@@ -178,22 +304,27 @@ export const applyInterpretationAdequacyGate = (
   userText: string,
   interpretation: ProblemInterpretation,
 ): ProblemInterpretation => {
-  const underExtractedFields = detectUnderExtractedFields(userText, interpretation);
+  const recoveredResult = recoverObviousExtraction(userText, interpretation);
+  const underExtractedFields = detectUnderExtractedFields(userText, recoveredResult.interpretation);
 
-  if (underExtractedFields.length === 0) {
+  if (underExtractedFields.length === 0 && !recoveredResult.recovered) {
     return interpretation;
   }
 
-  const issues = [...interpretation.issues];
-  pushUnique(issues, 'interpreter_under_extracted');
+  const issues = [...recoveredResult.interpretation.issues];
+
+  if (recoveredResult.recovered || underExtractedFields.length > 0) {
+    pushUnique(issues, 'interpreter_under_extracted');
+  }
+
   for (const field of underExtractedFields) {
     pushUnique(issues, `interpreter_under_extracted_${field}`);
   }
 
   return ProblemInterpretationSchema.parse({
-    ...interpretation,
-    confidence: Math.min(interpretation.confidence, LOW_CONFIDENCE_CAP),
-    missingCriticalFields: [...new Set([...interpretation.missingCriticalFields, ...underExtractedFields])],
+    ...recoveredResult.interpretation,
+    confidence: underExtractedFields.length > 0 ? Math.min(recoveredResult.interpretation.confidence, LOW_CONFIDENCE_CAP) : Math.max(recoveredResult.interpretation.confidence, 0.6),
+    missingCriticalFields: [...new Set([...recoveredResult.interpretation.missingCriticalFields, ...underExtractedFields])],
     issues,
   });
 };

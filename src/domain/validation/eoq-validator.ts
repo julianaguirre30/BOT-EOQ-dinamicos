@@ -98,6 +98,10 @@ export const validateCanonicalEoqInput = (
   const demandRate = canonicalInput.demandRate;
   const periodDemands = canonicalInput.periodDemands;
   const holdingCost = canonicalInput.holdingCost;
+  const hasStrongBranchSignal =
+    setupCost !== undefined ||
+    canonicalInput.setupCostByPeriod !== undefined ||
+    canonicalInput.unitCostByPeriod !== undefined;
 
   if (setupCost !== undefined) {
     const branchFromSetup = setupCost > 0 ? 'with_setup' : 'no_setup';
@@ -134,7 +138,7 @@ export const validateCanonicalEoqInput = (
     warnings.push('branch_inferred_from_unit_cost_by_period');
   }
 
-  if (effectiveBranch === undefined || hasAmbiguousTaxonomy(interpretation)) {
+  if (effectiveBranch === undefined || (hasAmbiguousTaxonomy(interpretation) && !hasStrongBranchSignal)) {
     pushUnique(errors, 'material_branch_ambiguity');
   }
 

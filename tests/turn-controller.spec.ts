@@ -462,6 +462,112 @@ describe('TurnController', () => {
     expect(stored?.activeProblem?.lastSolverOutput?.solverFamily).toBe('exact_with_setup');
   });
 
+  it('solves the exact colloquial Spanish recovery case instead of asking for clarification', async () => {
+    const sessionStore = new InMemorySessionStore();
+    const userText = 'tengo demanda de 10,20,30 y costo de almacenamiento de 40. el costo de pedido es 45';
+    const controller = new TurnController({
+      sessionStore,
+      interpreter: new GroqEoqInterpreter({
+        model: 'llama-3.3-70b-versatile',
+        client: {
+          async complete() {
+            return {
+              provider: 'groq',
+              model: 'llama-3.3-70b-versatile',
+              content: JSON.stringify({
+                normalizedText: userText,
+                extractedValues: {},
+                units: {},
+                taxonomyTags: [
+                  {
+                    family: 'inventory',
+                    topic: 'eoq',
+                    variant: 'standard',
+                    status: 'supported',
+                    notes: [],
+                  },
+                ],
+                confidence: 0.25,
+                missingCriticalFields: [],
+                issues: [],
+              }),
+            };
+          },
+        },
+      }),
+    });
+
+    const response = await controller.handleTurn({
+      sessionId: 'turn-controller-colloquial-recovery',
+      userText,
+    });
+
+    expect(response.mode).toBe('solved');
+    expect(response.algorithmSelection.solverFamily).toBe('exact_with_setup');
+    expect(response.interpretation.extractedValues).toMatchObject({
+      periodDemands: [10, 20, 30],
+      holdingCost: 40,
+      setupCost: 45,
+    });
+    expect(response.clarificationRequest).toBeUndefined();
+    expect(response.solverInput).toMatchObject({
+      branch: 'with_setup',
+      periodDemands: [10, 20, 30],
+      holdingCost: 40,
+      setupCost: 45,
+    });
+  });
+
+  it('also solves the greeting-prefixed colloquial Spanish recovery case', async () => {
+    const sessionStore = new InMemorySessionStore();
+    const userText = 'hola tengo demanda de 10,20,30 y costo de almacenamiento de 40. el costo de pedido es 45';
+    const controller = new TurnController({
+      sessionStore,
+      interpreter: new GroqEoqInterpreter({
+        model: 'llama-3.3-70b-versatile',
+        client: {
+          async complete() {
+            return {
+              provider: 'groq',
+              model: 'llama-3.3-70b-versatile',
+              content: JSON.stringify({
+                normalizedText: userText,
+                extractedValues: {},
+                units: {},
+                taxonomyTags: [
+                  {
+                    family: 'inventory',
+                    topic: 'eoq',
+                    variant: 'standard',
+                    status: 'ambiguous',
+                    notes: [],
+                  },
+                ],
+                confidence: 0.22,
+                missingCriticalFields: [],
+                issues: [],
+              }),
+            };
+          },
+        },
+      }),
+    });
+
+    const response = await controller.handleTurn({
+      sessionId: 'turn-controller-greeting-prefixed-recovery',
+      userText,
+    });
+
+    expect(response.mode).toBe('solved');
+    expect(response.algorithmSelection.solverFamily).toBe('exact_with_setup');
+    expect(response.interpretation.extractedValues).toMatchObject({
+      periodDemands: [10, 20, 30],
+      holdingCost: 40,
+      setupCost: 45,
+    });
+    expect(response.clarificationRequest).toBeUndefined();
+  });
+
   it('fails closed when the real interpreter provider path errors', async () => {
     const sessionStore = new InMemorySessionStore();
     const controller = new TurnController({

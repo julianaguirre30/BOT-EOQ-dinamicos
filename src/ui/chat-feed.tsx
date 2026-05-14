@@ -63,10 +63,11 @@ const getBubbleStyle = (role: ChatEntry['role']): CSSProperties =>
 export const ChatFeed = ({ entries }: { entries: ChatEntry[] }) => {
   if (entries.length === 0) {
     return (
-      <article style={feedStyles.emptyState}>
-        <p style={feedStyles.muted}>
-          Todavía no hay turnos. Mandá un mensaje y vas a ver una conversación continua, con los datos integrados en cada respuesta del tutor.
-        </p>
+      <article style={feedStyles.turn} data-testid="chat-turn-assistant">
+        <div style={feedStyles.bubble}>
+          <strong>Tutor</strong>
+          <p style={{ margin: '8px 0 0' }}>Hola, te ayudo a resolver tu problema de EOQ dinámico.</p>
+        </div>
       </article>
     );
   }
