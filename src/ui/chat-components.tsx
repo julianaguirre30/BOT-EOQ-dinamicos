@@ -28,7 +28,7 @@ export const chatComponentStyles = {
   },
   tableCell: {
     padding: '10px 12px',
-    color: '#0f172a',
+    color: '#0c1425',
   },
   section: {
     marginTop: '14px',
@@ -43,7 +43,7 @@ export const chatComponentStyles = {
     opacity: 0.9,
   },
   narrative: {
-    color: '#0f172a',
+    color: '#0c1425',
     lineHeight: 1.6,
     marginBottom: '4px',
   },

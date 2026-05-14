@@ -40,7 +40,7 @@ const feedStyles = {
   assistantBubble: {
     background: '#f7fff8',
     borderLeft: '3px solid #10b981',
-    color: '#0f172a',
+    color: '#0c1425',
   } as CSSProperties,
   emptyState: {
     borderRadius: '24px',

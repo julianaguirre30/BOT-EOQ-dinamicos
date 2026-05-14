@@ -99,7 +99,7 @@ export const ChatResponseCard = ({ response }: { response: PublicResponseEnvelop
   // For resolved follow-ups, show simple summary
   if (response.threadContext?.phase === 'resolved_follow_up') {
     return (
-      <div style={{ marginTop: '12px', color: '#cbd5e1', fontSize: '0.9rem' }}>
+      <div style={{ marginTop: '12px', color: '#0c1425', fontSize: '0.9rem' }}>
         <strong>Seguimiento:</strong>
         <ul style={{ margin: '6px 0 0', paddingLeft: '20px' }}>
           {[response.pedagogicalArtifacts.result[0], ...response.pedagogicalArtifacts.justification].map((item) => (
@@ -174,10 +174,10 @@ export const ChatResponseCard = ({ response }: { response: PublicResponseEnvelop
 
       {/* Model & Algorithm Info */}
       <ResponseSection title="🎯 Modelo y algoritmo">
-        <div style={{ color: '#0f172a', marginBottom: '10px' }}>
+        <div style={{ color: '#0c1425', marginBottom: '10px' }}>
           <strong>Modelo:</strong> {identifiedModel}
         </div>
-        <div style={{ color: '#0f172a', marginBottom: '10px' }}>
+        <div style={{ color: '#0c1425', marginBottom: '10px' }}>
           <strong>Algoritmo:</strong> {describeSolverFamily(response)}
         </div>
       </ResponseSection>
@@ -279,7 +279,7 @@ export const ChatShell = () => {
     setEntries((current) => {
       const newEntries = [
         ...current,
-        { id: `assistant-${crypto.randomUUID()}`, role: 'assistant', text },
+        { id: `assistant-${crypto.randomUUID()}`, role: 'assistant' as const, text },
       ];
       localStorage.setItem('chatEntries', JSON.stringify(newEntries));
       return newEntries;
@@ -305,7 +305,7 @@ export const ChatShell = () => {
 
       setDraft('');
       setError(null);
-      const newUserEntry = { id: `user-${crypto.randomUUID()}`, role: 'user', text: userText };
+      const newUserEntry = { id: `user-${crypto.randomUUID()}`, role: 'user' as const, text: userText };
       setEntries((current) => {
         const newEntries = [...current, newUserEntry];
         localStorage.setItem('chatEntries', JSON.stringify(newEntries));
@@ -427,7 +427,7 @@ export const ChatShell = () => {
         localStorage.setItem('sessionId', payload.sessionId);
         const assistantEntry = {
           id: `assistant-${crypto.randomUUID()}`,
-          role: 'assistant',
+          role: 'assistant' as const,
           text: payload.response.studentMessage,
           payload,
         };
@@ -437,6 +437,47 @@ export const ChatShell = () => {
           return newEntries;
         });
         setPendingResetProblem(false);
+      } catch (submissionError) {
+        setError(submissionError instanceof Error ? submissionError.message : 'Falló el envío del mensaje.');
+      } finally {
+        setIsSubmitting(false);
+      }
+      appendAssistantMessage('Si querés, podés preguntar algo sobre esta solución.');
+      return;
+    }
+
+    if (step === 'completed') {
+      if (!sessionId) {
+        appendAssistantMessage('El problema ya terminó, pero no tengo una sesión activa. Presioná Nuevo problema para empezar de nuevo.');
+        return;
+      }
+
+      try {
+        setIsSubmitting(true);
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(buildChatTurnRequest({ sessionId, userText, pendingResetProblem: false })),
+        });
+        const payload = (await response.json()) as ChatTurnResponse | { error?: string };
+
+        if (!response.ok || !('response' in payload)) {
+          throw new Error('error' in payload && payload.error ? payload.error : 'No se pudo completar la pregunta.');
+        }
+
+        setSessionId(payload.sessionId);
+        localStorage.setItem('sessionId', payload.sessionId);
+        const assistantEntry = {
+          id: `assistant-${crypto.randomUUID()}`,
+          role: 'assistant' as const,
+          text: payload.response.studentMessage,
+          payload,
+        };
+        setEntries((current) => {
+          const newEntries = [...current, assistantEntry];
+          localStorage.setItem('chatEntries', JSON.stringify(newEntries));
+          return newEntries;
+        });
       } catch (submissionError) {
         setError(submissionError instanceof Error ? submissionError.message : 'Falló el envío del mensaje.');
       } finally {
