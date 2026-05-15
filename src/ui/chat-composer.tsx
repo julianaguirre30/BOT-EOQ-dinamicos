@@ -28,7 +28,7 @@ const composerStyles = {
   button: {
     borderRadius: '999px',
     border: 'none',
-    background: 'linear-gradient(135deg, #10b981, #047857)',
+    background: '#047857',
     color: 'white',
     padding: '14px 22px',
     fontWeight: 700,
@@ -103,7 +103,7 @@ export const ChatComposer = ({
         {pendingResetProblem ? <span style={composerStyles.muted}>El próximo envío va a arrancar un problema nuevo.</span> : null}
       </div>
       <div style={composerStyles.buttonRow}>
-        <button type="button" style={{ ...composerStyles.button, background: 'linear-gradient(135deg, #047857, #0f766e)' }} onClick={onResetProblem}>
+        <button type="button" style={{ ...composerStyles.button, background: '#047857' }} onClick={onResetProblem}>
           Nuevo problema
         </button>
         <button type="submit" style={composerStyles.button} disabled={isSubmitting}>

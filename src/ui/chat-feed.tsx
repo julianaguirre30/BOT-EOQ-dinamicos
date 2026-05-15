@@ -49,6 +49,44 @@ const feedStyles = {
     border: '1px dashed rgba(16, 185, 129, 0.24)',
     color: '#0f172a',
   } as CSSProperties,
+  messageRow: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '12px',
+    marginBottom: '10px',
+  } as CSSProperties,
+  messageRowUser: {
+    justifyContent: 'flex-end',
+  } as CSSProperties,
+  avatar: {
+    width: '38px',
+    height: '38px',
+    minWidth: '38px',
+    borderRadius: '50%',
+    display: 'grid',
+    placeItems: 'center',
+    fontSize: '18px',
+    color: '#047857',
+    border: '2px solid #10b981',
+    background: 'transparent',
+  } as CSSProperties,
+  assistantAvatar: {
+    background: 'transparent',
+  } as CSSProperties,
+  userAvatar: {
+    background: 'transparent',
+  } as CSSProperties,
+  srOnly: {
+    position: 'absolute',
+    width: '1px',
+    height: '1px',
+    padding: 0,
+    margin: '-1px',
+    overflow: 'hidden',
+    clip: 'rect(0, 0, 0, 0)',
+    whiteSpace: 'nowrap',
+    border: 0,
+  } as CSSProperties,
   muted: {
     color: '#475569',
   } as CSSProperties,
@@ -68,9 +106,11 @@ export const ChatFeed = ({ entries }: { entries: ChatEntry[] }) => {
   if (entries.length === 0) {
     return (
       <article style={feedStyles.turn} data-testid="chat-turn-assistant">
-        <div style={feedStyles.bubble}>
-          <strong>Tutor</strong>
-          <p style={{ margin: '8px 0 0' }}>Hola, te ayudo a resolver tu problema de EOQ dinámico.</p>
+        <div style={feedStyles.messageRow}>
+          <div style={{ ...feedStyles.avatar, ...feedStyles.assistantAvatar }}>🤖</div>
+          <div style={feedStyles.bubble}>
+            <p style={{ margin: 0 }}>Hola, te ayudo a resolver tu problema de EOQ dinámico.</p>
+          </div>
         </div>
       </article>
     );
@@ -80,9 +120,21 @@ export const ChatFeed = ({ entries }: { entries: ChatEntry[] }) => {
     <section style={feedStyles.feed} aria-label="Conversación" data-testid="chat-feed">
       {entries.map((entry) => (
         <article key={entry.id} style={getTurnStyle(entry.role)} data-testid={`chat-turn-${entry.role}`}>
-          <div style={getBubbleStyle(entry.role)}>
-            <strong>{entry.role === 'assistant' ? 'Tutor' : 'Vos'}</strong>
-            <p style={{ margin: '8px 0 0' }}>{entry.text}</p>
+          <div
+            style={{
+              ...feedStyles.messageRow,
+              ...(entry.role === 'user' ? feedStyles.messageRowUser : {}),
+            }}
+          >
+            {entry.role === 'assistant' ? (
+              <div style={{ ...feedStyles.avatar, ...feedStyles.assistantAvatar }}>🤖</div>
+            ) : null}
+            <div style={getBubbleStyle(entry.role)}>
+              <p style={{ margin: 0 }}>{entry.text}</p>
+            </div>
+            {entry.role === 'user' ? (
+              <div style={{ ...feedStyles.avatar, ...feedStyles.userAvatar }}>👤</div>
+            ) : null}
           </div>
           {entry.role === 'assistant' && entry.payload ? <ChatResponseCard response={entry.payload.response} /> : null}
         </article>

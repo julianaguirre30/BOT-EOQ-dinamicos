@@ -18,7 +18,7 @@ export default function HomePage() {
         padding: '48px 40px',
         background: '#ffffff',
         border: '1px solid rgba(16, 185, 129, 0.18)',
-        boxShadow: '0 28px 90px rgba(16, 185, 129, 0.12)',
+        boxShadow: '0 28px 90px rgba(12, 219, 108, 0.27)',
         textAlign: 'center',
       }}>
         <span style={{
