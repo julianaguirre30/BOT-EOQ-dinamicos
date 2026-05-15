@@ -116,10 +116,12 @@ export const ChatFeed = ({
   entries,
   showStartButton,
   onStartProblem,
+  onOptionSelect,
 }: {
   entries: ChatEntry[];
   showStartButton?: boolean;
   onStartProblem?: () => void;
+  onOptionSelect?: (value: string) => void;
 }) => {
   if (entries.length === 0) {
     return (
@@ -149,6 +151,20 @@ export const ChatFeed = ({
             ) : null}
             <div style={getBubbleStyle(entry.role)}>
               <p style={{ margin: 0 }}>{entry.text}</p>
+              {entry.role === 'assistant' && entry.options && entry.options.length > 0 ? (
+                <div>
+                  {entry.options.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      style={feedStyles.actionButton}
+                      onClick={() => onOptionSelect?.(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
               {entry.role === 'assistant' && showStartButton && entry.id === 'assistant-welcome' ? (
                 <button style={feedStyles.actionButton} type="button" onClick={onStartProblem}>
                   Resolver problema

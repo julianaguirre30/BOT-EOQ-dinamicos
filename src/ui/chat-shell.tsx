@@ -335,6 +335,56 @@ export const ChatShell = () => {
     });
   };
 
+  const appendAssistantOptions = (text: string, options: Array<{ label: string; value: string }>) => {
+    setEntries((current) => {
+      const newEntries = [
+        ...current,
+        { id: `assistant-${crypto.randomUUID()}`, role: 'assistant' as const, text, options },
+      ];
+      localStorage.setItem('chatEntries', JSON.stringify(newEntries));
+      return newEntries;
+    });
+  };
+
+  const handleOptionSelect = (value: string) => {
+    if (step !== 'hasOrderCost') {
+      return;
+    }
+
+    const userEntry = { id: `user-${crypto.randomUUID()}`, role: 'user' as const, text: value };
+    setEntries((current) => {
+      const newEntries = [...current, userEntry];
+      localStorage.setItem('chatEntries', JSON.stringify(newEntries));
+      return newEntries;
+    });
+
+    const normalized = value.toLowerCase().trim();
+    const yes = /^(s|si|sí|yes|y)$/i.test(normalized);
+    const no = /^(n|no)$/i.test(normalized);
+
+    if (!yes && !no) {
+      appendAssistantMessage('Respondé con sí o no. ¿El problema tiene costo de pedido fijo?');
+      return;
+    }
+
+    const hasOrderCost = yes;
+    setProblemData((current) => {
+      const newData = { ...current, hasOrderCost };
+      localStorage.setItem('problemData', JSON.stringify(newData));
+      return newData;
+    });
+
+    if (hasOrderCost) {
+      setStep('orderCost');
+      localStorage.setItem('chatStep', 'orderCost');
+      appendAssistantMessage('Ingresá el costo de pedido fijo.');
+    } else {
+      setStep('holdingCost');
+      localStorage.setItem('chatStep', 'holdingCost');
+      appendAssistantMessage('Perfecto. Ahora ingresá el costo de almacenamiento por unidad y período.');
+    }
+  };
+
   const parseNumberList = (text: string) =>
     text
       .split(/[,\s]+/)
@@ -398,7 +448,10 @@ export const ChatShell = () => {
       });
       setStep('hasOrderCost');
       localStorage.setItem('chatStep', 'hasOrderCost');
-      appendAssistantMessage('¿El problema tiene costo de pedido fijo? Respondé sí o no.');
+      appendAssistantOptions('¿El problema tiene costo de pedido fijo?', [
+        { label: 'Sí', value: 'sí' },
+        { label: 'No', value: 'no' },
+      ]);
       return;
     }
 
@@ -571,7 +624,12 @@ export const ChatShell = () => {
 
         <section style={shellStyles.conversationShell}>
           <div ref={feedViewportRef} style={shellStyles.feedViewport} onScroll={handleFeedScroll}>
-            <ChatFeed entries={entries} showStartButton={step === 'welcome'} onStartProblem={startProblem} />
+            <ChatFeed
+              entries={entries}
+              showStartButton={step === 'welcome'}
+              onStartProblem={startProblem}
+              onOptionSelect={handleOptionSelect}
+            />
           </div>
           <ChatComposer
             draft={draft}
