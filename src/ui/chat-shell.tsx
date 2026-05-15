@@ -71,6 +71,23 @@ const shellStyles = {
     textDecoration: 'none',
     width: 'fit-content',
   },
+  startButtonArea: {
+    display: 'flex',
+    justifyContent: 'center',
+    padding: '20px 18px',
+    borderBottom: '1px solid rgba(16, 185, 129, 0.12)',
+    background: '#f7fff8',
+  },
+  startButton: {
+    borderRadius: '999px',
+    border: '1px solid #047857',
+    background: '#047857',
+    color: '#ffffff',
+    padding: '14px 22px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    boxShadow: '0 10px 30px rgba(16, 185, 129, 0.25)',
+  },
   conversationShell: {
     minHeight: 'calc(100vh - 220px)',
     display: 'flex',
@@ -103,7 +120,7 @@ const initialEntries: ChatEntry[] = [
   {
     id: 'assistant-welcome',
     role: 'assistant',
-    text: 'Hola, soy tu asistente EOQ. Te voy a ayudar a armar tu problema paso a paso. ¿Cuántos períodos querés analizar?',
+    text: 'Hola, soy tu asistente EOQ. ¿Querés resolver un problema?',
   },
 ];
 
@@ -219,7 +236,7 @@ export const ChatShell = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingResetProblem, setPendingResetProblem] = useState(false);
-  const [step, setStep] = useState<'periodCount' | 'demands' | 'hasOrderCost' | 'orderCost' | 'holdingCost' | 'completed'>('periodCount');
+  const [step, setStep] = useState<'welcome' | 'periodCount' | 'demands' | 'hasOrderCost' | 'orderCost' | 'holdingCost' | 'completed'>('welcome');
   const [problemData, setProblemData] = useState(initialProblemData);
 
   // Load state from localStorage on mount
@@ -229,7 +246,7 @@ export const ChatShell = () => {
     const savedEntries = localStorage.getItem('chatEntries');
     const savedSessionId = localStorage.getItem('sessionId');
 
-    if (savedStep && savedStep !== 'periodCount') {
+    if (savedStep) {
       setStep(savedStep as any);
     }
     if (savedProblemData) {
@@ -272,7 +289,7 @@ export const ChatShell = () => {
     setError(null);
     setIsSubmitting(false);
     setSessionId(undefined);
-    setStep('periodCount');
+    setStep('welcome');
     setProblemData(initialProblemData);
     setEntries(initialEntries);
     setPendingResetProblem(false);
@@ -280,6 +297,18 @@ export const ChatShell = () => {
     localStorage.removeItem('problemData');
     localStorage.removeItem('chatEntries');
     localStorage.removeItem('sessionId');
+  };
+
+  const startProblem = () => {
+    const userStartEntry = { id: `user-${crypto.randomUUID()}`, role: 'user' as const, text: 'Resolver problema' };
+    setEntries((current) => {
+      const newEntries = [...current, userStartEntry];
+      localStorage.setItem('chatEntries', JSON.stringify(newEntries));
+      return newEntries;
+    });
+    setStep('periodCount');
+    localStorage.setItem('chatStep', 'periodCount');
+    appendAssistantMessage('¿Cuántos períodos querés analizar?');
   };
 
   const feedViewportRef = useRef<HTMLDivElement | null>(null);
@@ -320,6 +349,10 @@ export const ChatShell = () => {
       const userText = draft.trim();
 
       if (!userText) {
+        return;
+      }
+
+      if (step === 'welcome') {
         return;
       }
 
@@ -538,7 +571,7 @@ export const ChatShell = () => {
 
         <section style={shellStyles.conversationShell}>
           <div ref={feedViewportRef} style={shellStyles.feedViewport} onScroll={handleFeedScroll}>
-            <ChatFeed entries={entries} />
+            <ChatFeed entries={entries} showStartButton={step === 'welcome'} onStartProblem={startProblem} />
           </div>
           <ChatComposer
             draft={draft}
@@ -546,6 +579,7 @@ export const ChatShell = () => {
             pendingResetProblem={pendingResetProblem}
             error={error}
             isSubmitting={isSubmitting}
+            disabled={step === 'welcome'}
             onChange={setDraft}
             onSubmit={handleSubmit}
             onResetProblem={resetConversation}

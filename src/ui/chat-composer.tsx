@@ -94,6 +94,7 @@ export const ChatComposer = ({
   pendingResetProblem,
   error,
   isSubmitting,
+  disabled,
   onChange,
   onSubmit,
   onResetProblem,
@@ -103,6 +104,7 @@ export const ChatComposer = ({
   pendingResetProblem: boolean;
   error: string | null;
   isSubmitting: boolean;
+  disabled?: boolean;
   onChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onResetProblem: () => void;
@@ -117,9 +119,10 @@ export const ChatComposer = ({
         style={composerStyles.textarea}
         value={draft}
         onChange={(event) => onChange(event.target.value)}
-        placeholder="Escribí aquí tu respuesta..."
+        placeholder={disabled ? 'Presioná Resolver problema para comenzar.' : 'Escribí aquí tu respuesta...'}
+        disabled={disabled}
       />
-      <button type="submit" style={composerStyles.sendButton} disabled={isSubmitting} aria-label="Enviar mensaje">
+      <button type="submit" style={composerStyles.sendButton} disabled={disabled || isSubmitting} aria-label="Enviar mensaje">
         ➤
       </button>
     </div>

@@ -58,6 +58,16 @@ const feedStyles = {
   messageRowUser: {
     justifyContent: 'flex-end',
   } as CSSProperties,
+  actionButton: {
+    marginTop: '14px',
+    border: 'none',
+    borderRadius: '999px',
+    background: '#047857',
+    color: '#ffffff',
+    padding: '10px 18px',
+    fontWeight: 700,
+    cursor: 'pointer',
+  } as CSSProperties,
   avatar: {
     width: '38px',
     height: '38px',
@@ -102,7 +112,15 @@ const getBubbleStyle = (role: ChatEntry['role']): CSSProperties =>
     ? { ...feedStyles.bubble, ...feedStyles.assistantBubble }
     : { ...feedStyles.bubble, ...feedStyles.userBubble };
 
-export const ChatFeed = ({ entries }: { entries: ChatEntry[] }) => {
+export const ChatFeed = ({
+  entries,
+  showStartButton,
+  onStartProblem,
+}: {
+  entries: ChatEntry[];
+  showStartButton?: boolean;
+  onStartProblem?: () => void;
+}) => {
   if (entries.length === 0) {
     return (
       <article style={feedStyles.turn} data-testid="chat-turn-assistant">
@@ -131,6 +149,11 @@ export const ChatFeed = ({ entries }: { entries: ChatEntry[] }) => {
             ) : null}
             <div style={getBubbleStyle(entry.role)}>
               <p style={{ margin: 0 }}>{entry.text}</p>
+              {entry.role === 'assistant' && showStartButton && entry.id === 'assistant-welcome' ? (
+                <button style={feedStyles.actionButton} type="button" onClick={onStartProblem}>
+                  Resolver problema
+                </button>
+              ) : null}
             </div>
             {entry.role === 'user' ? (
               <div style={{ ...feedStyles.avatar, ...feedStyles.userAvatar }}>👤</div>
