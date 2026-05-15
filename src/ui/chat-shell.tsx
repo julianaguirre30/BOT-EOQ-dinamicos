@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ChatTurnResponse } from '../app/runtime/chat-handler';
@@ -51,6 +52,25 @@ const shellStyles = {
     border: '1px solid rgba(16, 185, 129, 0.18)',
     boxShadow: '0 24px 80px rgba(16, 185, 129, 0.14)',
   },
+  heroHeading: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    marginBottom: '14px',
+  },
+  heroButton: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '999px',
+    padding: '10px 14px',
+    border: '1px solid #047857',
+    background: 'transparent',
+    color: '#047857',
+    fontWeight: 700,
+    textDecoration: 'none',
+    width: 'fit-content',
+  },
   conversationShell: {
     minHeight: 'calc(100vh - 220px)',
     display: 'flex',
@@ -83,7 +103,7 @@ const initialEntries: ChatEntry[] = [
   {
     id: 'assistant-welcome',
     role: 'assistant',
-    text: 'Vamos a armar tu problema paso a paso. ¿Cuántos períodos querés analizar?',
+    text: 'Hola, soy tu asistente EOQ. Te voy a ayudar a armar tu problema paso a paso. ¿Cuántos períodos querés analizar?',
   },
 ];
 
@@ -505,7 +525,12 @@ export const ChatShell = () => {
       <div style={shellStyles.container}>
         <section style={shellStyles.hero}>
           <span style={shellStyles.tag}>EOQ tutor MVP</span>
-          <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', margin: '14px 0 10px' }}>Tutor EOQ.</h1>
+          <div style={shellStyles.heroHeading}>
+            <Link href="/" style={shellStyles.heroButton} aria-label="Volver a bienvenida">
+              ←
+            </Link>
+            <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', margin: 0 }}>Tutor EOQ.</h1>
+          </div>
           <p style={{ ...shellStyles.muted, fontSize: '1.05rem', maxWidth: '760px' }}>
             Escribí tu problema EOQ y seguí la conversación en un único flujo.
           </p>

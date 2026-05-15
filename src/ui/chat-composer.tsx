@@ -12,6 +12,10 @@ const composerStyles = {
     background: '#ffffff',
     backdropFilter: 'blur(12px)',
   },
+  textareaWrap: {
+    position: 'relative' as const,
+    width: '100%',
+  },
   textarea: {
     width: '100%',
     minHeight: '76px',
@@ -21,9 +25,26 @@ const composerStyles = {
     border: '1px solid rgba(16, 185, 129, 0.28)',
     background: '#f7fff8',
     color: '#0f172a',
-    padding: '18px',
+    padding: '18px 56px 18px 18px',
     fontSize: '16px',
     outline: 'none',
+  },
+  sendButton: {
+    position: 'absolute' as const,
+    right: '12px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    width: '40px',
+    height: '40px',
+    borderRadius: '50%',
+    border: 'none',
+    background: '#047857',
+    color: 'white',
+    display: 'grid',
+    placeItems: 'center',
+    cursor: 'pointer',
+    boxShadow: '0 6px 18px rgba(16, 185, 129, 0.25)',
+    fontSize: '1.1rem',
   },
   button: {
     borderRadius: '999px',
@@ -90,13 +111,18 @@ export const ChatComposer = ({
     <label htmlFor="chat-input" style={composerStyles.label}>
       Respondé a la pregunta del asistente
     </label>
-    <textarea
-      id="chat-input"
-      style={composerStyles.textarea}
-      value={draft}
-      onChange={(event) => onChange(event.target.value)}
-      placeholder="Escribí aquí tu respuesta..."
-    />
+    <div style={composerStyles.textareaWrap}>
+      <textarea
+        id="chat-input"
+        style={composerStyles.textarea}
+        value={draft}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="Escribí aquí tu respuesta..."
+      />
+      <button type="submit" style={composerStyles.sendButton} disabled={isSubmitting} aria-label="Enviar mensaje">
+        ➤
+      </button>
+    </div>
     <div style={composerStyles.controls}>
       <div style={composerStyles.statusRow}>
         <span style={composerStyles.muted}>{sessionId ? `Sesión activa: ${sessionId}` : 'Todavía no arrancaste una sesión.'}</span>
@@ -105,9 +131,6 @@ export const ChatComposer = ({
       <div style={composerStyles.buttonRow}>
         <button type="button" style={{ ...composerStyles.button, background: '#047857' }} onClick={onResetProblem}>
           Nuevo problema
-        </button>
-        <button type="submit" style={composerStyles.button} disabled={isSubmitting}>
-          {isSubmitting ? 'Pensando...' : 'Enviar mensaje'}
         </button>
       </div>
     </div>
