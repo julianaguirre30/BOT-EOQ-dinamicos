@@ -1,7 +1,7 @@
 'use client';
 
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
-import { ChatResponseCard } from './chat-shell';
+import { SolveResultCard } from './solve-result-card';
 import { ChatEntry } from './types';
 
 const LIGHT = {
@@ -98,8 +98,39 @@ const ThinkingBubble = ({ isDark }: { isDark?: boolean }) => {
 };
 
 // ─── Welcome ──────────────────────────────────────────────────────────────────
-const WelcomeState = ({ onStartProblem, isDark }: { onStartProblem?: () => void; isDark?: boolean }) => {
+const WelcomeState = ({
+  onStartProblem, isDark, compact,
+}: {
+  onStartProblem?: () => void;
+  isDark?: boolean;
+  compact?: boolean;
+}) => {
   const P = getP(isDark);
+
+  // Modo compacto: solo el botón, sin robot ni texto
+  if (compact) {
+    return onStartProblem ? (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0 8px', animation: 'fadeSlideUp 0.3s ease' }}>
+        <button
+          onClick={onStartProblem}
+          style={{
+            padding: '11px 28px', borderRadius: '999px',
+            background: 'linear-gradient(135deg, #1a5fbc, #00bcd4)',
+            color: '#fff', fontWeight: 700, fontSize: '0.9rem',
+            border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+            boxShadow: '0 4px 20px rgba(26,95,188,0.3)',
+            transition: 'transform 0.18s ease, box-shadow 0.18s ease',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'; }}
+        >
+          Resolver problema →
+        </button>
+      </div>
+    ) : null;
+  }
+
+  // Modo completo: robot + título + descripción + botón
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 20px 40px', textAlign: 'center', gap: '20px' }}>
       <div style={{ width: '105px', height: '105px', animation: 'fadeSlideIn 0.5s ease' }}>
@@ -184,6 +215,7 @@ const AssistantMessage = ({
           color: P.text, backdropFilter: 'blur(12px)',
           boxShadow: '0 2px 12px rgba(26,95,188,0.07)',
           fontSize: '0.94rem', lineHeight: 1.65,
+          whiteSpace: 'pre-wrap',
         }}>
           {entry.text}
           {entry.options && entry.options.length > 0 && (
@@ -208,7 +240,7 @@ const AssistantMessage = ({
             </div>
           )}
         </div>
-        {entry.payload && <ChatResponseCard response={entry.payload.response} isDark={isDark} />}
+        {entry.solvePayload && <SolveResultCard solvePayload={entry.solvePayload} isDark={isDark} />}
       </div>
     </div>
   );
@@ -238,7 +270,7 @@ export const ChatFeed = ({
           ? <UserMessage key={entry.id} entry={entry} isDark={isDark} />
           : <AssistantMessage key={entry.id} entry={entry as ChatEntry & { role: 'assistant' }} isLast={false} isDark={isDark} onOptionSelect={onOptionSelect} />,
       )}
-      <WelcomeState onStartProblem={onStartProblem} isDark={isDark} />
+      <WelcomeState onStartProblem={onStartProblem} isDark={isDark} compact={entries.length > 0} />
     </>
   );
 
