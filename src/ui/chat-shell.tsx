@@ -1,20 +1,11 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 
-import { ChatTurnResponse } from '../app/runtime/chat-handler';
-import { PublicResponseEnvelope } from '../contracts/eoq';
-import { DataTable, KeyValueTable, ResponseSection, BulletList } from './chat-components';
+import { SimpleChatResponse, GenericResponse, SolveResponse, FollowUpResponse } from '../app/runtime/simple-handler';
 import { ChatFeed } from './chat-feed';
 import { ChatComposer } from './chat-composer';
 import { ChatEntry } from './types';
-import {
-  describeBranch,
-  describeSolverFamily,
-  buildAttentionPanel,
-  buildRelevantCostLabel,
-  buildDetectedData,
-} from './formatters';
 
 // ─── Paletas ──────────────────────────────────────────────────────────────────
 const LIGHT = {
@@ -58,104 +49,20 @@ const DARK = {
 export const getPalette = (dark: boolean) => dark ? DARK : LIGHT;
 export const P = getPalette(false); // compat
 
-// ─── Request builder ──────────────────────────────────────────────────────────
-export const buildChatTurnRequest = ({
-  sessionId, userText, pendingResetProblem,
-}: {
-  sessionId?: string; userText: string; pendingResetProblem: boolean;
-}): { sessionId?: string; userText: string; resetProblem?: true } => ({
-  ...(sessionId ? { sessionId } : {}),
-  userText,
-  ...(pendingResetProblem ? { resetProblem: true as const } : {}),
-});
-
-// ─── Response Card ────────────────────────────────────────────────────────────
-export const ChatResponseCard = ({ response, isDark }: { response: PublicResponseEnvelope; isDark?: boolean }) => {
-  const palette = getPalette(isDark ?? false);
-  if (response.threadContext?.phase === 'resolved_follow_up') {
-    return (
-      <div style={{ marginTop: '12px', color: palette.textMuted, fontSize: '0.9rem' }}>
-        <strong style={{ color: palette.text }}>Seguimiento:</strong>
-        <ul style={{ margin: '8px 0 0', paddingLeft: '20px' }}>
-          {[response.pedagogicalArtifacts.result[0], ...response.pedagogicalArtifacts.justification].map((item) => (
-            <li key={item} style={{ marginTop: '6px', color: palette.textMuted }}>{item}</li>
-          ))}
-        </ul>
-      </div>
-    );
-  }
-
-  const detectedData   = useMemo(() => buildDetectedData(response),  [response]);
-  const attentionPanel = useMemo(() => buildAttentionPanel(response), [response]);
-  const identifiedModel = describeBranch(
-    response.solverInput?.branch ??
-    response.algorithmSelection.chosenBranch ??
-    response.interpretation.branchCandidate,
-  );
-
-  return (
-    <div style={{ marginTop: '16px', fontSize: '0.92rem' }}>
-      {detectedData.length > 0 && (
-        <ResponseSection title="📊 Datos detectados" isDark={isDark}>
-          <KeyValueTable data={detectedData} isDark={isDark} />
-        </ResponseSection>
-      )}
-      {attentionPanel.items.length > 0 && (
-        <ResponseSection title={`⚠️ ${attentionPanel.title}`} isDark={isDark}>
-          <BulletList items={attentionPanel.items} isDark={isDark} />
-        </ResponseSection>
-      )}
-      {response.solverOutput && (
-        <>
-          <ResponseSection title="📦 Plan de reposición" isDark={isDark}>
-            <DataTable
-              isDark={isDark}
-              columns={['Período', 'Cantidad a reponer', 'Cubre hasta']}
-              rows={response.solverOutput.policy.replenishmentPlan.map((s) => [
-                s.period.toString(), s.quantity.toString(), s.coversThroughPeriod.toString(),
-              ])}
-            />
-          </ResponseSection>
-          <ResponseSection title="💰 Análisis de costos" isDark={isDark}>
-            <DataTable
-              isDark={isDark}
-              columns={['Concepto', 'Valor']}
-              rows={[
-                [buildRelevantCostLabel(response), response.solverOutput.mathematicalArtifacts.costBreakdown.setupOrOrderingCost.toString()],
-                ['Costo de mantener total',        response.solverOutput.mathematicalArtifacts.costBreakdown.holdingCost.toString()],
-                ['Costo relevante total',          response.solverOutput.mathematicalArtifacts.costBreakdown.totalRelevantCost.toString()],
-              ]}
-            />
-          </ResponseSection>
-        </>
-      )}
-      <ResponseSection title="🎯 Modelo y algoritmo" isDark={isDark}>
-        <div style={{ marginBottom: '5px' }}>
-          <span style={{ color: palette.textFaint, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Modelo </span>
-          <span style={{ color: palette.text }}>{identifiedModel}</span>
-        </div>
-        <div>
-          <span style={{ color: palette.textFaint, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Algoritmo </span>
-          <span style={{ color: palette.text }}>{describeSolverFamily(response)}</span>
-        </div>
-      </ResponseSection>
-      {response.pedagogicalArtifacts.justification.length > 0 && (
-        <ResponseSection title="💡 Explicación" isDark={isDark}>
-          <BulletList items={response.pedagogicalArtifacts.justification} isDark={isDark} />
-        </ResponseSection>
-      )}
-    </div>
-  );
-};
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 type StoredEntry = { id: string; role: 'user' | 'assistant'; text: string };
 type ConvRecord  = { id: string; label: string; ts: number; entries?: StoredEntry[] };
 
 const QUICK_EXAMPLES = [
-  '¿Cómo se calcula el costo total relevante?',
-  '¿Por qué no se hace un pedido en todos los períodos?',
-  '¿Qué pasaría si el costo de pedido fuera el doble?',
+  '¿Para qué sirve este modelo?',
+  '¿Qué datos necesito para resolver un problema?',
+  '¿Cuándo conviene usar Wagner-Whitin y no EOQ clásico?',
+  '¿Qué significa el costo relevante total?',
+  '¿Por qué a veces conviene pedir de más en un período?',
+  '¿Qué pasa si no tengo costo fijo de pedido?',
+  '¿El modelo funciona si la demanda es 0 en algún período?',
+  '¿Cómo sé si el plan calculado es realmente el óptimo?',
 ];
 
 const Sidebar = ({
@@ -447,8 +354,30 @@ export const ChatShell = () => {
     appendAssistantMessage('¿Cuántos períodos querés analizar?');
   };
 
+  // ── Chip especial: nuevo problema ────────────────────────────────────────────
+  const NEW_PROBLEM_VALUE = '__new_problem__';
+
+  const startFreshProblem = () => {
+    const newId = crypto.randomUUID();
+    setActiveConvId(newId);
+    setConversations(prev => [{ id: newId, label: 'Nuevo problema', ts: Date.now() }, ...prev].slice(0, 3));
+    setDraft('');
+    setError(null);
+    setIsSubmitting(false);
+    setSessionId(undefined);
+    setProblemData(initialProblemData);
+    setPendingResetProblem(false);
+    setStep('periodCount');
+    setEntries([{
+      id: `assistant-${crypto.randomUUID()}`,
+      role: 'assistant' as const,
+      text: '¿Cuántos períodos querés analizar?',
+    }]);
+  };
+
   // ── Opciones sí/no ────────────────────────────────────────────────────────────
   const handleOptionSelect = (value: string) => {
+    if (value === NEW_PROBLEM_VALUE) { startFreshProblem(); return; }
     if (step !== 'hasOrderCost') return;
     setEntries(prev => [...prev, { id: `user-${crypto.randomUUID()}`, role: 'user' as const, text: value }]);
     const yes = /^(s|si|sí|yes|y)$/i.test(value.toLowerCase().trim());
@@ -467,31 +396,53 @@ export const ChatShell = () => {
     if (isSubmitting) return;
     setError(null);
 
-    // Registrar en historial si es la primera interacción
-    const convId = activeConvId ?? crypto.randomUUID();
-    if (!activeConvId) setActiveConvId(convId);
-    setConversations(prev => {
-      if (prev.find(x => x.id === convId)) return prev;
-      const label = text.length > 36 ? text.slice(0, 36) + '…' : text;
-      return [{ id: convId, label, ts: Date.now() }, ...prev].slice(0, 3);
-    });
-
     setEntries(prev => [...prev, { id: `user-${crypto.randomUUID()}`, role: 'user' as const, text }]);
 
+    // Sin sesión: pregunta genérica conceptual, step se mantiene en 'welcome'
+    if (!sessionId) {
+      try {
+        setIsSubmitting(true);
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'generic', userText: text }),
+        });
+        const payload = (await res.json()) as SimpleChatResponse | { error?: string };
+        if (!res.ok || !('type' in payload))
+          throw new Error('error' in payload && payload.error ? payload.error : 'No se pudo responder.');
+        setEntries(prev => [...prev, {
+          id: `assistant-${crypto.randomUUID()}`,
+          role: 'assistant' as const,
+          text: (payload as GenericResponse).message,
+        }]);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Falló la consulta.');
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
+    // Con sesión activa: follow-up sobre el problema resuelto
     try {
       setIsSubmitting(true);
-      const shouldReset = !!sessionId && step !== 'completed';
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildChatTurnRequest({ sessionId, userText: text, pendingResetProblem: shouldReset })),
+        body: JSON.stringify({ type: 'followup', sessionId, userText: text }),
       });
-      const payload = (await res.json()) as ChatTurnResponse | { error?: string };
-      if (!res.ok || !('response' in payload))
+      const payload = (await res.json()) as SimpleChatResponse | { error?: string };
+      if (!res.ok || !('type' in payload))
         throw new Error('error' in payload && payload.error ? payload.error : 'No se pudo completar la pregunta.');
-      setSessionId(payload.sessionId);
-      setStep('completed');
-      setEntries(prev => [...prev, { id: `assistant-${crypto.randomUUID()}`, role: 'assistant' as const, text: payload.response.studentMessage, payload }]);
+      const followUp = payload as FollowUpResponse;
+      setEntries(prev => [...prev, {
+        id: `assistant-${crypto.randomUUID()}`,
+        role: 'assistant' as const,
+        text: followUp.message,
+        options: followUp.suggestsNewProblem
+          ? [{ label: '↺ Resolver nuevo problema', value: NEW_PROBLEM_VALUE }]
+          : undefined,
+      }]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falló el envío del mensaje.');
     } finally {
@@ -563,40 +514,52 @@ export const ChatShell = () => {
       }
 
       if (step === 'holdingCost') {
-        const holdingCost = Number(userText.replace(/[^0-9.,-]/g, '').replace(',', '.'));
-        if (!Number.isFinite(holdingCost) || holdingCost < 0) {
-          appendAssistantMessage('Ingresá un valor numérico válido para el costo de almacenamiento.');
+        const holdingCost = Number(userText.replace(/[^0-9.]/g, ''));
+        if (!Number.isFinite(holdingCost) || holdingCost <= 0) {
+          appendAssistantMessage('Ingresá un valor numérico positivo para el costo de almacenamiento (usá punto como separador decimal, ej: 1.5).');
           return;
         }
         const finalData = { ...problemData, holdingCost };
         setProblemData(finalData);
         setStep('completed');
-        appendAssistantMessage('Perfecto, estoy calculando tu plan óptimo...');
-
-        const prompt =
-          `Tengo ${finalData.periodCount} períodos con demandas ${finalData.demands.join(', ')}. ` +
-          `${finalData.hasOrderCost ? `El costo de pedido fijo es ${finalData.orderCost}. ` : 'No tiene costo de pedido fijo. '}` +
-          `El costo de almacenamiento es ${finalData.holdingCost} por unidad por período.`;
+        appendAssistantMessage('Perfecto, calculando el plan óptimo...');
 
         try {
           setIsSubmitting(true);
           const res = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(buildChatTurnRequest({ sessionId, userText: prompt, pendingResetProblem: !!sessionId })),
+            body: JSON.stringify({
+              type: 'solve',
+              sessionId,
+              periodDemands: finalData.demands,
+              hasSetupCost:  finalData.hasOrderCost ?? false,
+              setupCost:     finalData.orderCost,
+              holdingCost:   finalData.holdingCost,
+            }),
           });
-          const payload = (await res.json()) as ChatTurnResponse | { error?: string };
-          if (!res.ok || !('response' in payload))
+          const payload = (await res.json()) as SimpleChatResponse | { error?: string };
+          if (!res.ok || !('type' in payload))
             throw new Error('error' in payload && payload.error ? payload.error : 'No se pudo completar el cálculo.');
-          setSessionId(payload.sessionId);
-          setEntries(prev => [...prev, { id: `assistant-${crypto.randomUUID()}`, role: 'assistant' as const, text: payload.response.studentMessage, payload }]);
-          setPendingResetProblem(false);
+          const solvePayload = payload as SolveResponse;
+          setSessionId(solvePayload.sessionId);
+          setEntries(prev => [...prev, {
+            id: `assistant-${crypto.randomUUID()}`,
+            role: 'assistant' as const,
+            text: solvePayload.message,
+            solvePayload: {
+              sessionId:   solvePayload.sessionId,
+              solverInput: solvePayload.solverInput,
+              solverOutput: solvePayload.solverOutput,
+            },
+          }]);
+          appendAssistantMessage('¿Tenés alguna pregunta sobre el plan o los costos?');
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Falló el cálculo.');
+          setStep('holdingCost');
         } finally {
           setIsSubmitting(false);
         }
-        appendAssistantMessage('Si querés, podés preguntar algo sobre esta solución.');
         return;
       }
 
@@ -610,13 +573,20 @@ export const ChatShell = () => {
           const res = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(buildChatTurnRequest({ sessionId, userText, pendingResetProblem: false })),
+            body: JSON.stringify({ type: 'followup', sessionId, userText }),
           });
-          const payload = (await res.json()) as ChatTurnResponse | { error?: string };
-          if (!res.ok || !('response' in payload))
+          const payload = (await res.json()) as SimpleChatResponse | { error?: string };
+          if (!res.ok || !('type' in payload))
             throw new Error('error' in payload && payload.error ? payload.error : 'No se pudo completar la pregunta.');
-          setSessionId(payload.sessionId);
-          setEntries(prev => [...prev, { id: `assistant-${crypto.randomUUID()}`, role: 'assistant' as const, text: payload.response.studentMessage, payload }]);
+          const followUp = payload as FollowUpResponse;
+          setEntries(prev => [...prev, {
+            id: `assistant-${crypto.randomUUID()}`,
+            role: 'assistant' as const,
+            text: followUp.message,
+            options: followUp.suggestsNewProblem
+              ? [{ label: '↺ Resolver nuevo problema', value: NEW_PROBLEM_VALUE }]
+              : undefined,
+          }]);
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Falló el envío del mensaje.');
         } finally {
