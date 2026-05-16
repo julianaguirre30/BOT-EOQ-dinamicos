@@ -1,183 +1,259 @@
 'use client';
 
-import { CSSProperties } from 'react';
-import { ChatTurnResponse } from '../app/runtime/chat-handler';
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import { ChatResponseCard } from './chat-shell';
 import { ChatEntry } from './types';
 
-const feedStyles = {
-  feed: {
-    display: 'grid',
-    gap: '14px',
-    alignContent: 'start',
-  } as const,
-  turn: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '10px',
-  },
-  turnUser: {
-    alignItems: 'flex-end',
-  },
-  turnAssistant: {
-    alignItems: 'stretch',
-  },
-  bubble: {
-    maxWidth: 'min(100%, 720px)',
-    borderRadius: '22px',
-    padding: '14px 16px',
-    lineHeight: 1.55,
-    border: '1px solid rgba(16, 185, 129, 0.18)',
-    boxShadow: '0 10px 32px rgba(16, 185, 129, 0.12)',
-    background: '#ffffff',
-    color: '#0f172a',
-  } as CSSProperties,
-  userBubble: {
-    alignSelf: 'flex-end',
-    background: 'linear-gradient(135deg, #10b981, #047857)',
-    color: '#ffffff',
-  } as CSSProperties,
-  assistantBubble: {
-    background: '#f7fff8',
-    borderLeft: '3px solid #10b981',
-    color: '#0c1425',
-  } as CSSProperties,
-  emptyState: {
-    borderRadius: '24px',
-    padding: '18px',
-    background: '#f7fff8',
-    border: '1px dashed rgba(16, 185, 129, 0.24)',
-    color: '#0f172a',
-  } as CSSProperties,
-  messageRow: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: '12px',
-    marginBottom: '10px',
-  } as CSSProperties,
-  messageRowUser: {
-    justifyContent: 'flex-end',
-  } as CSSProperties,
-  actionButton: {
-    marginTop: '14px',
-    border: 'none',
-    borderRadius: '999px',
-    background: '#047857',
-    color: '#ffffff',
-    padding: '10px 18px',
-    fontWeight: 700,
-    cursor: 'pointer',
-  } as CSSProperties,
-  avatar: {
-    width: '38px',
-    height: '38px',
-    minWidth: '38px',
-    borderRadius: '50%',
-    display: 'grid',
-    placeItems: 'center',
-    fontSize: '18px',
-    color: '#047857',
-    border: '2px solid #10b981',
-    background: 'transparent',
-  } as CSSProperties,
-  assistantAvatar: {
-    background: 'transparent',
-  } as CSSProperties,
-  userAvatar: {
-    background: 'transparent',
-  } as CSSProperties,
-  srOnly: {
-    position: 'absolute',
-    width: '1px',
-    height: '1px',
-    padding: 0,
-    margin: '-1px',
-    overflow: 'hidden',
-    clip: 'rect(0, 0, 0, 0)',
-    whiteSpace: 'nowrap',
-    border: 0,
-  } as CSSProperties,
-  muted: {
-    color: '#475569',
-  } as CSSProperties,
+const LIGHT = {
+  border:    'rgba(26,95,188,0.14)',
+  blue:      '#1a5fbc',
+  cyan:      '#00bcd4',
+  grad:      'linear-gradient(135deg, #1a5fbc, #00bcd4)',
+  text:      '#0b1829',
+  textMuted: '#3a5a78',
+  textFaint: '#8aaac4',
+  botBubble: 'rgba(255,255,255,0.72)',
+  userAvatar:'rgba(255,255,255,0.5)',
+  thinking:  'rgba(255,255,255,0.72)',
 } as const;
 
-const getTurnStyle = (role: ChatEntry['role']): CSSProperties =>
-  role === 'assistant'
-    ? { ...feedStyles.turn, ...feedStyles.turnAssistant }
-    : { ...feedStyles.turn, ...feedStyles.turnUser };
+const DARK = {
+  border:    'rgba(26,95,188,0.22)',
+  blue:      '#4d8fd4',
+  cyan:      '#00bcd4',
+  grad:      'linear-gradient(135deg, #1a5fbc, #00bcd4)',
+  text:      '#ddeeff',
+  textMuted: '#7aaac8',
+  textFaint: '#3d5f7a',
+  botBubble: 'rgba(14,24,48,0.92)',
+  userAvatar:'rgba(26,95,188,0.15)',
+  thinking:  'rgba(14,24,48,0.85)',
+} as const;
 
-const getBubbleStyle = (role: ChatEntry['role']): CSSProperties =>
-  role === 'assistant'
-    ? { ...feedStyles.bubble, ...feedStyles.assistantBubble }
-    : { ...feedStyles.bubble, ...feedStyles.userBubble };
+const getP = (dark?: boolean) => dark ? DARK : LIGHT;
 
+// ─── Global keyframes ─────────────────────────────────────────────────────────
+const STYLES = `
+  @keyframes fadeSlideIn   { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes fadeSlideUp   { from{opacity:0;transform:translateY(8px)}  to{opacity:1;transform:translateY(0)} }
+  @keyframes bounce        { 0%,80%,100%{transform:translateY(0);opacity:.4} 40%{transform:translateY(-6px);opacity:1} }
+  @keyframes gradMove      { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+  @keyframes avatarPulse   { 0%,100%{filter:drop-shadow(0 0 4px rgba(26,95,188,0.25))} 50%{filter:drop-shadow(0 0 12px rgba(0,188,212,0.55))} }
+  @keyframes chipIn        { from{opacity:0;transform:translateY(6px) scale(0.96)} to{opacity:1;transform:translateY(0) scale(1)} }
+
+  .msg-bubble-bot  { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+  .msg-bubble-bot:hover  { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(26,95,188,0.12) !important; }
+  .msg-bubble-user { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+  .msg-bubble-user:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,188,212,0.25) !important; }
+  .chip-suggestion { transition: background 0.18s, transform 0.18s, box-shadow 0.18s; cursor: pointer; }
+  .chip-suggestion:hover { background: rgba(26,95,188,0.1) !important; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(26,95,188,0.1); }
+`;
+
+// ─── Avatar ───────────────────────────────────────────────────────────────────
+const BotAvatar = () => (
+  <div style={{ width: '56px', height: '56px', minWidth: '56px', flexShrink: 0, animation: 'avatarPulse 3s ease-in-out infinite' }}>
+    <DotLottieReact src="/Ai Robot Vector Art.lottie" loop autoplay style={{ width: '100%', height: '100%' }} />
+  </div>
+);
+
+const UserAvatar = ({ isDark }: { isDark?: boolean }) => {
+  const P = getP(isDark);
+  return (
+    <div style={{
+      width: '32px', height: '32px', minWidth: '32px', borderRadius: '8px',
+      background: P.userAvatar, border: `1px solid ${P.border}`,
+      display: 'grid', placeItems: 'center', fontSize: '14px', flexShrink: 0,
+    }}>
+      👤
+    </div>
+  );
+};
+
+// ─── Thinking ─────────────────────────────────────────────────────────────────
+const ThinkingBubble = ({ isDark }: { isDark?: boolean }) => {
+  const P = getP(isDark);
+  return (
+    <div
+      style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', marginBottom: '24px', animation: 'fadeSlideIn 0.35s cubic-bezier(0.4,0,0.2,1)' }}
+      data-testid="chat-turn-thinking"
+    >
+      <div style={{ width: '56px', height: '56px', minWidth: '56px', flexShrink: 0 }}>
+        <DotLottieReact src="/Robot Automation Gif.lottie" loop autoplay style={{ width: '100%', height: '100%' }} />
+      </div>
+      <div style={{
+        background: P.thinking, border: `1px solid ${P.border}`,
+        borderRadius: '4px 18px 18px 18px', padding: '16px 20px',
+        backdropFilter: 'blur(8px)', boxShadow: '0 2px 12px rgba(26,95,188,0.07)',
+        display: 'flex', alignItems: 'center', gap: '6px',
+      }}>
+        {[0, 1, 2].map((i) => (
+          <span key={i} style={{
+            width: '7px', height: '7px', borderRadius: '50%', background: P.blue,
+            display: 'block', animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`,
+          }} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ─── Welcome ──────────────────────────────────────────────────────────────────
+const WelcomeState = ({ onStartProblem, isDark }: { onStartProblem?: () => void; isDark?: boolean }) => {
+  const P = getP(isDark);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 20px 40px', textAlign: 'center', gap: '20px' }}>
+      <div style={{ width: '105px', height: '105px', animation: 'fadeSlideIn 0.5s ease' }}>
+        <DotLottieReact src="/RobotSaludando.lottie" loop autoplay style={{ width: '100%', height: '100%' }} />
+      </div>
+      <div style={{ animation: 'fadeSlideUp 0.5s ease 0.1s both' }}>
+        <h2 style={{
+          fontSize: '1.6rem', fontWeight: 700, margin: '0 0 10px',
+          background: 'linear-gradient(90deg, #0a3fa0, #00bcd4, #1a9be8, #0a3fa0)',
+          backgroundSize: '300% auto',
+          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+          animation: 'gradMove 2.5s linear infinite',
+        }}>
+          ¿En qué te ayudo hoy?
+        </h2>
+        <p style={{ color: P.textMuted, fontSize: '0.95rem', margin: 0, lineHeight: 1.65, maxWidth: '400px' }}>
+          Describí tu problema de inventario y encontramos el plan de pedidos óptimo.
+        </p>
+      </div>
+      {onStartProblem && (
+        <button
+          onClick={onStartProblem}
+          style={{
+            padding: '12px 32px', borderRadius: '999px',
+            background: 'linear-gradient(135deg, #1a5fbc, #00bcd4)',
+            color: '#fff', fontWeight: 700, fontSize: '0.95rem',
+            border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+            boxShadow: '0 4px 20px rgba(26,95,188,0.3)',
+            animation: 'chipIn 0.4s ease 0.2s both',
+            transition: 'transform 0.18s ease, box-shadow 0.18s ease',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'; }}
+        >
+          Resolver problema →
+        </button>
+      )}
+    </div>
+  );
+};
+
+// ─── Messages ─────────────────────────────────────────────────────────────────
+const UserMessage = ({ entry, isDark }: { entry: ChatEntry; isDark?: boolean }) => {
+  const P = getP(isDark);
+  return (
+    <div
+      style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', alignItems: 'flex-start', marginBottom: '20px', animation: 'fadeSlideIn 0.3s cubic-bezier(0.4,0,0.2,1)' }}
+      data-testid="chat-turn-user"
+    >
+      <div className="msg-bubble-user" style={{
+        maxWidth: 'min(78%, 580px)', background: P.grad, color: '#fff',
+        borderRadius: '18px 18px 4px 18px', padding: '12px 16px',
+        fontSize: '0.94rem', lineHeight: 1.6,
+        boxShadow: '0 4px 16px rgba(26,95,188,0.22)',
+      }}>
+        {entry.text}
+      </div>
+      <UserAvatar isDark={isDark} />
+    </div>
+  );
+};
+
+const AssistantMessage = ({
+  entry, isLast, isDark, onOptionSelect,
+}: {
+  entry: ChatEntry & { role: 'assistant' };
+  isLast?: boolean;
+  isDark?: boolean;
+  onOptionSelect?: (value: string) => void;
+}) => {
+  const P = getP(isDark);
+  return (
+    <div
+      style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', marginBottom: '28px', animation: 'fadeSlideIn 0.35s cubic-bezier(0.4,0,0.2,1)' }}
+      data-testid="chat-turn-assistant"
+    >
+      {isLast ? <BotAvatar /> : <div style={{ width: '56px', minWidth: '56px', flexShrink: 0 }} />}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="msg-bubble-bot" style={{
+          background: P.botBubble, border: `1px solid ${P.border}`,
+          borderRadius: '4px 18px 18px 18px', padding: '13px 16px',
+          color: P.text, backdropFilter: 'blur(12px)',
+          boxShadow: '0 2px 12px rgba(26,95,188,0.07)',
+          fontSize: '0.94rem', lineHeight: 1.65,
+        }}>
+          {entry.text}
+          {entry.options && entry.options.length > 0 && (
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '12px' }}>
+              {entry.options.map((opt: { label: string; value: string }) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className="chip-suggestion"
+                  onClick={() => onOptionSelect?.(opt.value)}
+                  style={{
+                    padding: '7px 14px', borderRadius: '999px',
+                    border: `1px solid rgba(0,188,212,0.3)`,
+                    background: 'rgba(0,188,212,0.08)', color: P.cyan,
+                    fontSize: '0.85rem', fontWeight: 500, fontFamily: 'inherit',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        {entry.payload && <ChatResponseCard response={entry.payload.response} isDark={isDark} />}
+      </div>
+    </div>
+  );
+};
+
+// ─── Feed ─────────────────────────────────────────────────────────────────────
 export const ChatFeed = ({
   entries,
-  showStartButton,
+  isThinking = false,
+  showStartButton = false,
+  isDark,
   onStartProblem,
   onOptionSelect,
 }: {
   entries: ChatEntry[];
+  isThinking?: boolean;
   showStartButton?: boolean;
+  isDark?: boolean;
   onStartProblem?: () => void;
   onOptionSelect?: (value: string) => void;
 }) => {
-  if (entries.length === 0) {
-    return (
-      <article style={feedStyles.turn} data-testid="chat-turn-assistant">
-        <div style={feedStyles.messageRow}>
-          <div style={{ ...feedStyles.avatar, ...feedStyles.assistantAvatar }}>🤖</div>
-          <div style={feedStyles.bubble}>
-            <p style={{ margin: 0 }}>Hola, te ayudo a resolver tu problema de EOQ dinámico.</p>
-          </div>
-        </div>
-      </article>
-    );
-  }
+  if (showStartButton) return (
+    <>
+      <style>{STYLES}</style>
+      {entries.map((entry) =>
+        entry.role === 'user'
+          ? <UserMessage key={entry.id} entry={entry} isDark={isDark} />
+          : <AssistantMessage key={entry.id} entry={entry as ChatEntry & { role: 'assistant' }} isLast={false} isDark={isDark} onOptionSelect={onOptionSelect} />,
+      )}
+      <WelcomeState onStartProblem={onStartProblem} isDark={isDark} />
+    </>
+  );
 
   return (
-    <section style={feedStyles.feed} aria-label="Conversación" data-testid="chat-feed">
-      {entries.map((entry) => (
-        <article key={entry.id} style={getTurnStyle(entry.role)} data-testid={`chat-turn-${entry.role}`}>
-          <div
-            style={{
-              ...feedStyles.messageRow,
-              ...(entry.role === 'user' ? feedStyles.messageRowUser : {}),
-            }}
-          >
-            {entry.role === 'assistant' ? (
-              <div style={{ ...feedStyles.avatar, ...feedStyles.assistantAvatar }}>🤖</div>
-            ) : null}
-            <div style={getBubbleStyle(entry.role)}>
-              <p style={{ margin: 0 }}>{entry.text}</p>
-              {entry.role === 'assistant' && entry.options && entry.options.length > 0 ? (
-                <div>
-                  {entry.options.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      style={feedStyles.actionButton}
-                      onClick={() => onOptionSelect?.(option.value)}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-              {entry.role === 'assistant' && showStartButton && entry.id === 'assistant-welcome' ? (
-                <button style={feedStyles.actionButton} type="button" onClick={onStartProblem}>
-                  Resolver problema
-                </button>
-              ) : null}
-            </div>
-            {entry.role === 'user' ? (
-              <div style={{ ...feedStyles.avatar, ...feedStyles.userAvatar }}>👤</div>
-            ) : null}
-          </div>
-          {entry.role === 'assistant' && entry.payload ? <ChatResponseCard response={entry.payload.response} /> : null}
-        </article>
-      ))}
+    <section aria-label="Conversación" data-testid="chat-feed">
+      <style>{STYLES}</style>
+      {entries.map((entry, i) => {
+        const isLastAssistant = entry.role === 'assistant' &&
+          !isThinking &&
+          entries.slice(i + 1).every(e => e.role === 'user');
+        return entry.role === 'user'
+          ? <UserMessage key={entry.id} entry={entry} isDark={isDark} />
+          : <AssistantMessage key={entry.id} entry={entry as ChatEntry & { role: 'assistant' }} isLast={isLastAssistant} isDark={isDark} onOptionSelect={onOptionSelect} />;
+      })}
+      {isThinking && <ThinkingBubble isDark={isDark} />}
     </section>
   );
 };
