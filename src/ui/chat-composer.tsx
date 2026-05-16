@@ -97,7 +97,6 @@ export const ChatComposer = ({
   disabled,
   onChange,
   onSubmit,
-  onResetProblem,
 }: {
   draft: string;
   sessionId?: string;
@@ -107,7 +106,6 @@ export const ChatComposer = ({
   disabled?: boolean;
   onChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onResetProblem: () => void;
 }) => (
   <form style={composerStyles.inputWrap} onSubmit={onSubmit} data-testid="chat-composer">
     <label htmlFor="chat-input" style={composerStyles.label}>
@@ -132,9 +130,7 @@ export const ChatComposer = ({
         {pendingResetProblem ? <span style={composerStyles.muted}>El próximo envío va a arrancar un problema nuevo.</span> : null}
       </div>
       <div style={composerStyles.buttonRow}>
-        <button type="button" style={{ ...composerStyles.button, background: '#047857' }} onClick={onResetProblem}>
-          Nuevo problema
-        </button>
+        {/* Nuevo problema moved to header; composer keeps compact status only */}
       </div>
     </div>
     {error ? <p style={composerStyles.errorText}>{error}</p> : null}

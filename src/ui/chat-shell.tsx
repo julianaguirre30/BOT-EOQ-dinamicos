@@ -1,6 +1,7 @@
-'use client';
+"use client";
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ChatTurnResponse } from '../app/runtime/chat-handler';
@@ -46,30 +47,62 @@ const shellStyles = {
     gap: '18px',
   },
   hero: {
-    borderRadius: '28px',
-    padding: '32px 32px',
-    background: '#ffffff',
-    border: '1px solid rgba(16, 185, 129, 0.18)',
-    boxShadow: '0 24px 80px rgba(16, 185, 129, 0.14)',
+    borderRadius: '20px',
+    padding: '20px 20px',
+    background: 'linear-gradient(90deg, rgba(255,255,255,0.9), rgba(250,255,250,0.9))',
+    border: '1px solid rgba(16, 185, 129, 0.12)',
+    boxShadow: '0 12px 40px rgba(16, 185, 129, 0.08)',
   },
-  heroHeading: {
+  headerRow: {
     display: 'flex',
     alignItems: 'center',
-    gap: '16px',
-    marginBottom: '14px',
+    justifyContent: 'space-between',
+    gap: '12px',
+    marginBottom: '8px',
   },
-  heroButton: {
-    display: 'inline-flex',
+  logoGroup: {
+    display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '999px',
-    padding: '10px 14px',
-    border: '1px solid #047857',
-    background: 'transparent',
-    color: '#047857',
+    gap: '14px',
+  },
+  titleBlock: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+  },
+  title: {
+    margin: 0,
+    fontSize: '1.6rem',
+    fontWeight: 800,
+    color: '#073030',
+    letterSpacing: '-0.5px',
+  },
+  subtitle: {
+    margin: 0,
+    fontSize: '0.95rem',
+    color: '#405169',
+    marginTop: '2px',
+  },
+  actions: {
+    display: 'flex',
+    gap: '10px',
+    alignItems: 'center',
+  },
+  primaryButton: {
+    borderRadius: '10px',
+    border: 'none',
+    background: '#047857',
+    color: '#fff',
+    padding: '8px 14px',
     fontWeight: 700,
-    textDecoration: 'none',
-    width: 'fit-content',
+    cursor: 'pointer',
+  },
+  secondaryButton: {
+    borderRadius: '10px',
+    border: '1px solid rgba(4,120,87,0.12)',
+    background: 'transparent',
+    color: '#063C2B',
+    padding: '8px 12px',
+    cursor: 'pointer',
   },
   startButtonArea: {
     display: 'flex',
@@ -230,6 +263,7 @@ export const ChatResponseCard = ({ response }: { response: PublicResponseEnvelop
 };
 
 export const ChatShell = () => {
+  const router = useRouter();
   const [draft, setDraft] = useState('');
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [entries, setEntries] = useState<ChatEntry[]>(initialEntries);
@@ -239,39 +273,9 @@ export const ChatShell = () => {
   const [step, setStep] = useState<'welcome' | 'periodCount' | 'demands' | 'hasOrderCost' | 'orderCost' | 'holdingCost' | 'completed'>('welcome');
   const [problemData, setProblemData] = useState(initialProblemData);
 
-  // Load state from localStorage on mount
+  // Ensure chat is clean when entering the page
   useEffect(() => {
-    const savedStep = localStorage.getItem('chatStep');
-    const savedProblemData = localStorage.getItem('problemData');
-    const savedEntries = localStorage.getItem('chatEntries');
-    const savedSessionId = localStorage.getItem('sessionId');
-
-    if (savedStep) {
-      setStep(savedStep as any);
-    }
-    if (savedProblemData) {
-      try {
-        const parsed = JSON.parse(savedProblemData);
-        if (parsed.periodCount > 0) {
-          setProblemData(parsed);
-        }
-      } catch (e) {
-        console.error('Error parsing problemData from localStorage:', e);
-      }
-    }
-    if (savedEntries) {
-      try {
-        const parsed = JSON.parse(savedEntries);
-        if (parsed.length > 1) { // Only load if there are more than just the welcome message
-          setEntries(parsed);
-        }
-      } catch (e) {
-        console.error('Error parsing entries from localStorage:', e);
-      }
-    }
-    if (savedSessionId) {
-      setSessionId(savedSessionId);
-    }
+    resetConversation();
   }, []);
 
   // Clear localStorage when resetting problem
@@ -610,15 +614,27 @@ export const ChatShell = () => {
     <main style={shellStyles.page}>
       <div style={shellStyles.container}>
         <section style={shellStyles.hero}>
-          <span style={shellStyles.tag}>EOQ tutor MVP</span>
-          <div style={shellStyles.heroHeading}>
-            <Link href="/" style={shellStyles.heroButton} aria-label="Volver a bienvenida">
-              ←
-            </Link>
-            <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', margin: 0 }}>Tutor EOQ.</h1>
+          <div style={shellStyles.headerRow}>
+            <div style={shellStyles.logoGroup}>
+              <span style={shellStyles.tag}>EOQ</span>
+              <div style={shellStyles.titleBlock}>
+                <h1 style={shellStyles.title}>Tutor EOQ</h1>
+                <p style={shellStyles.subtitle}>Gestioná tu inventario de manera óptima</p>
+              </div>
+            </div>
+
+            <div style={shellStyles.actions}>
+              <button style={shellStyles.secondaryButton} onClick={() => resetConversation()} aria-label="Nuevo problema">
+                Nuevo problema
+              </button>
+              <button style={shellStyles.primaryButton} onClick={() => router.back()} aria-label="Volver">
+                Volver
+              </button>
+            </div>
           </div>
-          <p style={{ ...shellStyles.muted, fontSize: '1.05rem', maxWidth: '760px' }}>
-            Escribí tu problema EOQ y seguí la conversación en un único flujo.
+
+          <p style={{ ...shellStyles.muted, fontSize: '1.02rem', maxWidth: '760px', marginTop: '6px' }}>
+          Escribi tu problema de EOQ en lenguaje natural y te guiaré paso a paso para elegir el modelo correcto, calcular el plan óptimo y entender cada decisión.
           </p>
         </section>
 
@@ -640,7 +656,6 @@ export const ChatShell = () => {
             disabled={step === 'welcome'}
             onChange={setDraft}
             onSubmit={handleSubmit}
-            onResetProblem={resetConversation}
           />
         </section>
       </div>
