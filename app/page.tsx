@@ -291,6 +291,10 @@ export default function HomePage() {
         </button>
       </div>
 
+      <div style={{ width: '100%', maxWidth: '960px', alignSelf: 'stretch', marginBottom: '16px', color: textMuted, fontSize: '0.88rem', letterSpacing: '0.01em', textAlign: 'left' }}>
+        Tareas en las que te puedo ayudar
+      </div>
+
       {/* Overlay morph — se expande desde el botón hasta fullscreen */}
       <AnimatePresence>
         {morphing && rect && (
