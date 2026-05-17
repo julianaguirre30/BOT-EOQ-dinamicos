@@ -230,7 +230,7 @@ const Sidebar = ({
         {!effectiveCollapsed && (
           <div style={{ marginTop: conversations.length > 0 ? '16px' : '8px' }}>
             <div style={{ fontSize: '0.69rem', color: palette.textFaint, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '8px 4px 6px' }}>
-              Ejemplos rápidos
+              Conceptos rápidos
             </div>
             {QUICK_EXAMPLES.map((ex, i) => (
               <button
