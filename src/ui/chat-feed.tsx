@@ -47,11 +47,20 @@ const STYLES = `
   .msg-bubble-user:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,188,212,0.25) !important; }
   .chip-suggestion { transition: background 0.18s, transform 0.18s, box-shadow 0.18s; cursor: pointer; }
   .chip-suggestion:hover { background: rgba(26,95,188,0.1) !important; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(26,95,188,0.1); }
+
+  @media (max-width: 640px) {
+    .bot-avatar-wrap { width: 36px !important; height: 36px !important; min-width: 36px !important; }
+    .bot-avatar-placeholder { width: 36px !important; min-width: 36px !important; }
+    .msg-bubble-bot  { font-size: 0.9rem !important; padding: 10px 13px !important; }
+    .msg-bubble-user { font-size: 0.9rem !important; padding: 10px 13px !important; }
+    .msg-turn-bot  { gap: 8px !important; margin-bottom: 18px !important; }
+    .msg-turn-user { gap: 8px !important; margin-bottom: 14px !important; }
+  }
 `;
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 const BotAvatar = () => (
-  <div style={{ width: '56px', height: '56px', minWidth: '56px', flexShrink: 0, animation: 'avatarPulse 3s ease-in-out infinite' }}>
+  <div className="bot-avatar-wrap" style={{ width: '56px', height: '56px', minWidth: '56px', flexShrink: 0, animation: 'avatarPulse 3s ease-in-out infinite' }}>
     <DotLottieReact src="/Ai Robot Vector Art.lottie" loop autoplay style={{ width: '100%', height: '100%' }} />
   </div>
 );
@@ -74,10 +83,11 @@ const ThinkingBubble = ({ isDark }: { isDark?: boolean }) => {
   const P = getP(isDark);
   return (
     <div
+      className="msg-turn-bot"
       style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', marginBottom: '24px', animation: 'fadeSlideIn 0.35s cubic-bezier(0.4,0,0.2,1)' }}
       data-testid="chat-turn-thinking"
     >
-      <div style={{ width: '56px', height: '56px', minWidth: '56px', flexShrink: 0 }}>
+      <div className="bot-avatar-wrap" style={{ width: '56px', height: '56px', minWidth: '56px', flexShrink: 0 }}>
         <DotLottieReact src="/Robot Automation Gif.lottie" loop autoplay style={{ width: '100%', height: '100%' }} />
       </div>
       <div style={{
@@ -132,7 +142,7 @@ const WelcomeState = ({
 
   // Modo completo: robot + título + descripción + botón
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 20px 40px', textAlign: 'center', gap: '20px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 20px 32px', textAlign: 'center', gap: '16px' }}>
       <div style={{ width: '105px', height: '105px', animation: 'fadeSlideIn 0.5s ease' }}>
         <DotLottieReact src="/RobotSaludando.lottie" loop autoplay style={{ width: '100%', height: '100%' }} />
       </div>
@@ -177,6 +187,7 @@ const UserMessage = ({ entry, isDark }: { entry: ChatEntry; isDark?: boolean }) 
   const P = getP(isDark);
   return (
     <div
+      className="msg-turn-user"
       style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', alignItems: 'flex-start', marginBottom: '20px', animation: 'fadeSlideIn 0.3s cubic-bezier(0.4,0,0.2,1)' }}
       data-testid="chat-turn-user"
     >
@@ -204,10 +215,11 @@ const AssistantMessage = ({
   const P = getP(isDark);
   return (
     <div
+      className="msg-turn-bot"
       style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', marginBottom: '28px', animation: 'fadeSlideIn 0.35s cubic-bezier(0.4,0,0.2,1)' }}
       data-testid="chat-turn-assistant"
     >
-      {isLast ? <BotAvatar /> : <div style={{ width: '56px', minWidth: '56px', flexShrink: 0 }} />}
+      {isLast ? <BotAvatar /> : <div className="bot-avatar-placeholder" style={{ width: '56px', minWidth: '56px', flexShrink: 0 }} />}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="msg-bubble-bot" style={{
           background: P.botBubble, border: `1px solid ${P.border}`,
