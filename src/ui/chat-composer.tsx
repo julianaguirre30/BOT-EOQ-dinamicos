@@ -172,13 +172,15 @@ export const ChatComposer = ({
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', padding: '0 4px' }}>
-          <span style={{ fontSize: '0.71rem', color: P.textFaint }}>
-            {pendingResetProblem
-              ? '↩ El próximo mensaje inicia un problema nuevo'
-              : 'Enter para enviar · Shift+Enter para salto de línea'}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', padding: '0 4px' }}>
+          <span style={{ fontSize: '0.69rem', color: P.textFaint, display: pendingResetProblem ? undefined : 'none' }}>
+            ↩ El próximo mensaje inicia un problema nuevo
+          </span>
+          <span style={{ fontSize: '0.69rem', color: P.textFaint, display: pendingResetProblem ? 'none' : undefined }} className="composer-hint">
+            Enter para enviar · Shift+Enter para salto de línea
           </span>
         </div>
+        <style>{`@media (max-width: 640px) { .composer-hint { display: none !important; } }`}</style>
       </form>
     </div>
   );

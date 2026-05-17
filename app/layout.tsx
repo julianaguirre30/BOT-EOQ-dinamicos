@@ -3,13 +3,14 @@ import { ReactNode } from 'react';
 export const metadata = {
   title: 'Simplex · Asistente EOQ Dinámico',
   description: 'Calculá el plan óptimo de pedidos con el modelo EOQ dinámico.',
-  icons: { icon: '/logo.png' },
+  icons: { icon: '/isologo.png' },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="es">
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
@@ -18,6 +19,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         />
       </head>
       <body style={{ margin: 0, fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif' }}>
+        <style>{`*, *::before, *::after { box-sizing: border-box; } html, body { overflow-x: hidden; }`}</style>
         {children}
       </body>
     </html>

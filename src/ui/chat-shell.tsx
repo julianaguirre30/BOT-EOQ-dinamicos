@@ -67,6 +67,7 @@ const QUICK_EXAMPLES = [
 
 const Sidebar = ({
   conversations, activeId, onSelect, onNew, collapsed, onToggle, onExampleSelect, isDark,
+  isMobile, mobileOpen, onCloseMobile,
 }: {
   conversations: ConvRecord[];
   activeId?: string;
@@ -76,49 +77,82 @@ const Sidebar = ({
   onToggle: () => void;
   onExampleSelect: (text: string) => void;
   isDark?: boolean;
+  isMobile?: boolean;
+  mobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }) => {
   const palette = getPalette(isDark ?? false);
-  const W = collapsed ? '60px' : '260px';
+  const effectiveCollapsed = isMobile ? false : collapsed;
+  const W = effectiveCollapsed ? '60px' : '260px';
+
+  const mobileStyle: React.CSSProperties = isMobile ? {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    height: '100dvh',
+    width: '260px',
+    minWidth: '260px',
+    maxWidth: '260px',
+    transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)',
+    transition: 'transform 0.25s cubic-bezier(0.4,0,0.2,1)',
+    zIndex: 200,
+  } : {
+    width: W, minWidth: W, maxWidth: W,
+    height: '100vh',
+    transition: 'width 0.22s ease, min-width 0.22s ease',
+  };
 
   return (
     <aside
       style={{
-        width: W, minWidth: W, maxWidth: W,
-        height: '100vh',
         background: palette.sidebar,
         backdropFilter: 'blur(40px)',
         WebkitBackdropFilter: 'blur(40px)',
-        borderRight: `1px solid ${P.sidebarBorder}`,
+        borderRight: `1px solid ${palette.sidebarBorder}`,
         display: 'flex', flexDirection: 'column',
-        transition: 'width 0.22s ease, min-width 0.22s ease',
         overflow: 'hidden', flexShrink: 0, zIndex: 30,
+        ...mobileStyle,
       }}
     >
       {/* Brand */}
       <div
         style={{
-          padding: '16px 12px',
+          padding: '14px 12px',
           borderBottom: `1px solid ${palette.sidebarBorder}`,
           display: 'flex', justifyContent: 'center', alignItems: 'center',
-          minHeight: '100px',
+          minHeight: isMobile ? '96px' : '100px',
+          position: 'relative',
         }}
       >
         <img
           src="/isologo.png"
           alt="Simplex"
-          onClick={onToggle}
-          title={collapsed ? 'Expandir menú' : 'Colapsar menú'}
+          onClick={isMobile ? undefined : onToggle}
+          title={isMobile ? undefined : (effectiveCollapsed ? 'Expandir menú' : 'Colapsar menú')}
           style={{
-            width: collapsed ? '48px' : '88px',
-            height: collapsed ? '48px' : '88px',
+            width: effectiveCollapsed ? '48px' : isMobile ? '88px' : '72px',
+            height: effectiveCollapsed ? '48px' : isMobile ? '88px' : '72px',
             objectFit: 'contain',
-            flexShrink: 0,
-            cursor: 'pointer',
+            cursor: isMobile ? 'default' : 'pointer',
             transition: 'width 0.22s ease, height 0.22s ease',
             filter: 'drop-shadow(0 2px 10px rgba(26,95,188,0.2))',
             margin: '0 auto',
           }}
         />
+        {isMobile && (
+          <button
+            onClick={onCloseMobile}
+            aria-label="Cerrar menú"
+            style={{
+              position: 'absolute', top: '10px', right: '10px',
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: palette.textMuted, fontSize: '18px', lineHeight: 1,
+              padding: '6px', borderRadius: '8px', display: 'grid', placeItems: 'center',
+            }}
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       {/* New conversation */}
@@ -133,14 +167,14 @@ const Sidebar = ({
             background: 'transparent',
             cursor: 'pointer', fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
             fontSize: '0.88rem', fontWeight: 400, color: palette.textMuted,
-            justifyContent: collapsed ? 'center' : 'flex-start',
+            justifyContent: effectiveCollapsed ? 'center' : 'flex-start',
             transition: 'background 0.15s',
           }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = palette.sidebarHover; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
         >
           <span style={{ fontSize: '20px', lineHeight: 1, flexShrink: 0, fontWeight: 300, color: palette.textMuted }}>+</span>
-          {!collapsed && <span>Nueva conversación</span>}
+          {!effectiveCollapsed && <span>Nueva conversación</span>}
         </button>
       </div>
 
@@ -148,7 +182,7 @@ const Sidebar = ({
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 10px', scrollbarWidth: 'none' }}>
 
         {/* Historial */}
-        {!collapsed && conversations.length > 0 && (
+        {!effectiveCollapsed && conversations.length > 0 && (
           <>
             <div style={{ fontSize: '0.69rem', color: palette.textFaint, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '8px 4px 4px' }}>
               Recientes
@@ -176,7 +210,7 @@ const Sidebar = ({
         )}
 
         {/* Collapsed: solo iconos de historial */}
-        {collapsed && conversations.map((c) => (
+        {effectiveCollapsed && conversations.map((c) => (
           <button
             key={c.id}
             onClick={() => onSelect(c.id)}
@@ -193,7 +227,7 @@ const Sidebar = ({
         ))}
 
         {/* Ejemplos rápidos */}
-        {!collapsed && (
+        {!effectiveCollapsed && (
           <div style={{ marginTop: conversations.length > 0 ? '16px' : '8px' }}>
             <div style={{ fontSize: '0.69rem', color: palette.textFaint, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '8px 4px 6px' }}>
               Ejemplos rápidos
@@ -225,7 +259,7 @@ const Sidebar = ({
       </div>
 
       {/* Footer */}
-      {!collapsed && (
+      {!effectiveCollapsed && (
         <div style={{ padding: '12px 14px', borderTop: `1px solid ${palette.sidebarBorder}`, fontSize: '0.72rem', color: palette.textFaint, lineHeight: 1.6 }}>
           <div style={{ fontWeight: 600, color: palette.textMuted, marginBottom: '2px' }}>Equipo Simplex · UTN</div>
           <div>Acosta · Aguirre · Boland</div>
@@ -260,9 +294,23 @@ export const ChatShell = () => {
   const [conversations,       setConversations]       = useState<ConvRecord[]>([]);
   const [activeConvId,        setActiveConvId]        = useState<string | undefined>();
   const [isDark,              setIsDark]              = useState(false);
+  const [isMobile,            setIsMobile]            = useState(false);
+  const [mobileSidebarOpen,   setMobileSidebarOpen]   = useState(false);
 
   const feedViewportRef     = useRef<HTMLDivElement | null>(null);
   const shouldAutoFollowRef = useRef(true);
+
+  // ── Detección de mobile + resize ────────────────────────────────────────────
+  useEffect(() => {
+    const check = () => {
+      const mobile = window.innerWidth < 680;
+      setIsMobile(mobile);
+      if (!mobile) setMobileSidebarOpen(false);
+    };
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   // ── localStorage: cargar al montar ──────────────────────────────────────────
   useEffect(() => {
@@ -339,6 +387,7 @@ export const ChatShell = () => {
     setStep('completed');
     setProblemData(initialProblemData);
     setPendingResetProblem(false);
+    setMobileSidebarOpen(false);
   };
 
   // ── Botón "Resolver problema" en WelcomeState ─────────────────────────────────
@@ -606,13 +655,14 @@ export const ChatShell = () => {
   return (
     <div
       style={{
-        height: '100vh',
+        height: '100dvh',
         display: 'flex',
         background: palette.pageBg,
         color: palette.text,
         fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
         overflow: 'hidden',
         transition: 'background 0.3s ease, color 0.3s ease',
+        position: 'relative',
       }}
     >
       {/* Ambient orbs */}
@@ -623,6 +673,19 @@ export const ChatShell = () => {
         .theme-toggle { transition: background 0.18s, transform 0.18s; }
         .theme-toggle:hover { transform: scale(1.1); }
       `}</style>
+
+      {/* Mobile sidebar backdrop */}
+      {isMobile && mobileSidebarOpen && (
+        <div
+          onClick={() => setMobileSidebarOpen(false)}
+          style={{
+            position: 'fixed', inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(2px)',
+            zIndex: 199,
+          }}
+        />
+      )}
       <div style={{ position:'fixed', inset:0, pointerEvents:'none', overflow:'hidden', zIndex:0 }}>
         <div style={{ position:'absolute', top:'10%', left:'15%', width:'320px', height:'320px', borderRadius:'50%', background:`radial-gradient(circle, ${isDark ? 'rgba(26,95,188,0.12)' : 'rgba(26,95,188,0.09)'} 0%, transparent 70%)`, animation:'orbFloat1 18s ease-in-out infinite' }} />
         <div style={{ position:'absolute', bottom:'15%', right:'10%', width:'400px', height:'400px', borderRadius:'50%', background:`radial-gradient(circle, ${isDark ? 'rgba(0,188,212,0.1)' : 'rgba(0,188,212,0.08)'} 0%, transparent 70%)`, animation:'orbFloat2 22s ease-in-out infinite' }} />
@@ -634,11 +697,14 @@ export const ChatShell = () => {
         conversations={conversations}
         activeId={activeConvId}
         onSelect={handleSelectConversation}
-        onNew={resetConversation}
+        onNew={() => { resetConversation(); setMobileSidebarOpen(false); }}
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed((v) => !v)}
-        onExampleSelect={(text) => sendDirect(text)}
+        onExampleSelect={(text) => { sendDirect(text); setMobileSidebarOpen(false); }}
         isDark={isDark}
+        isMobile={isMobile}
+        mobileOpen={mobileSidebarOpen}
+        onCloseMobile={() => setMobileSidebarOpen(false)}
       />
 
       {/* Main */}
@@ -649,73 +715,63 @@ export const ChatShell = () => {
           style={{
             height: '52px',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '0 20px',
+            padding: isMobile ? '0 12px' : '0 20px',
             borderBottom: `1px solid ${palette.sidebarBorder}`,
             background: palette.headerBg,
             backdropFilter: 'blur(40px)',
             WebkitBackdropFilter: 'blur(40px)',
-            flexShrink: 0,
+            flexShrink: 0, gap: '8px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontWeight: 600, fontSize: '0.95rem', color: palette.text }}>EOQ Dinámico</span>
-            <span style={{
-              fontSize: '0.7rem', color: palette.blue,
-              background: palette.toggleBg,
-              border: `1px solid ${palette.toggleBorder}`,
-              borderRadius: '999px', padding: '2px 9px', fontWeight: 500,
-            }}>
-              Wagner-Whitin
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+            {/* Hamburger (mobile only) */}
+            {isMobile && (
+              <button
+                onClick={() => setMobileSidebarOpen(v => !v)}
+                aria-label="Abrir menú"
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: palette.textMuted, fontSize: '22px', lineHeight: 1,
+                  padding: '4px 6px', borderRadius: '8px', flexShrink: 0,
+                  display: 'grid', placeItems: 'center',
+                }}
+              >
+                ☰
+              </button>
+            )}
+            <span style={{ fontWeight: 600, fontSize: isMobile ? '0.88rem' : '0.95rem', color: palette.text, whiteSpace: 'nowrap' }}>EOQ Dinámico</span>
+            {!isMobile && (
+              <span style={{
+                fontSize: '0.7rem', color: palette.blue,
+                background: palette.toggleBg,
+                border: `1px solid ${palette.toggleBorder}`,
+                borderRadius: '999px', padding: '2px 9px', fontWeight: 500,
+                whiteSpace: 'nowrap',
+              }}>
+                Wagner-Whitin
+              </span>
+            )}
           </div>
 
-          {/* Toggle día/noche estilo pill */}
-          <div
-            onClick={() => setIsDark(v => !v)}
-            title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-            style={{
-              display: 'flex', alignItems: 'center',
-              width: '100px', height: '36px', borderRadius: '999px',
-              background: isDark ? '#1a2540' : '#e8f0fe',
-              border: `1.5px solid ${isDark ? 'rgba(26,95,188,0.35)' : 'rgba(26,95,188,0.2)'}`,
-              cursor: 'pointer', userSelect: 'none',
-              position: 'relative', overflow: 'hidden',
-              transition: 'background 0.35s ease, border 0.35s ease',
-              flexShrink: 0,
-            }}
-          >
-            {/* Texto */}
-            <span style={{
-              position: 'absolute',
-              left: isDark ? '44px' : '14px',
-              fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em',
-              color: isDark ? '#7aaac8' : '#1a5fbc',
-              textTransform: 'uppercase',
-              transition: 'left 0.35s cubic-bezier(0.4,0,0.2,1), color 0.35s',
-              whiteSpace: 'nowrap',
-            }}>
-              {isDark ? 'Noche' : 'Día'}
-            </span>
-
-            {/* Círculo con icono */}
-            <div style={{
-              position: 'absolute',
-              left: isDark ? '4px' : 'calc(100% - 40px)',
-              width: '28px', height: '28px', borderRadius: '50%',
-              background: isDark ? '#0d1829' : '#fff',
-              boxShadow: isDark
-                ? '0 2px 8px rgba(0,0,0,0.5)'
-                : '0 2px 8px rgba(26,95,188,0.2)',
-              display: 'grid', placeItems: 'center',
-              fontSize: '14px',
-              transition: 'left 0.35s cubic-bezier(0.4,0,0.2,1), background 0.35s',
-            }}>
+          {/* Toggle día/noche — pill en desktop, solo icono en mobile */}
+          {isMobile ? (
+            <button
+              onClick={() => setIsDark(v => !v)}
+              title={isDark ? 'Modo claro' : 'Modo oscuro'}
+              style={{
+                width: '36px', height: '36px', borderRadius: '50%',
+                background: isDark ? '#1a2540' : '#e8f0fe',
+                border: `1.5px solid ${isDark ? 'rgba(26,95,188,0.35)' : 'rgba(26,95,188,0.2)'}`,
+                cursor: 'pointer', display: 'grid', placeItems: 'center',
+                flexShrink: 0, transition: 'background 0.3s', outline: 'none',
+              }}
+            >
               {isDark ? (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={isDark ? '#7aaac8' : '#1a5fbc'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7aaac8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
                 </svg>
               ) : (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1a5fbc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1a5fbc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="5"/>
                   <line x1="12" y1="1" x2="12" y2="3"/>
                   <line x1="12" y1="21" x2="12" y2="23"/>
@@ -727,8 +783,62 @@ export const ChatShell = () => {
                   <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
                 </svg>
               )}
+            </button>
+          ) : (
+            <div
+              onClick={() => setIsDark(v => !v)}
+              title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+              style={{
+                display: 'flex', alignItems: 'center',
+                width: '100px', height: '36px', borderRadius: '999px',
+                background: isDark ? '#1a2540' : '#e8f0fe',
+                border: `1.5px solid ${isDark ? 'rgba(26,95,188,0.35)' : 'rgba(26,95,188,0.2)'}`,
+                cursor: 'pointer', userSelect: 'none',
+                position: 'relative', overflow: 'hidden',
+                transition: 'background 0.35s ease, border 0.35s ease',
+                flexShrink: 0,
+              }}
+            >
+              <span style={{
+                position: 'absolute',
+                left: isDark ? '44px' : '14px',
+                fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em',
+                color: isDark ? '#7aaac8' : '#1a5fbc',
+                textTransform: 'uppercase',
+                transition: 'left 0.35s cubic-bezier(0.4,0,0.2,1), color 0.35s',
+                whiteSpace: 'nowrap',
+              }}>
+                {isDark ? 'Noche' : 'Día'}
+              </span>
+              <div style={{
+                position: 'absolute',
+                left: isDark ? '4px' : 'calc(100% - 40px)',
+                width: '28px', height: '28px', borderRadius: '50%',
+                background: isDark ? '#0d1829' : '#fff',
+                boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.5)' : '0 2px 8px rgba(26,95,188,0.2)',
+                display: 'grid', placeItems: 'center', fontSize: '14px',
+                transition: 'left 0.35s cubic-bezier(0.4,0,0.2,1), background 0.35s',
+              }}>
+                {isDark ? (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7aaac8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                  </svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1a5fbc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="5"/>
+                    <line x1="12" y1="1" x2="12" y2="3"/>
+                    <line x1="12" y1="21" x2="12" y2="23"/>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                    <line x1="1" y1="12" x2="3" y2="12"/>
+                    <line x1="21" y1="12" x2="23" y2="12"/>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                  </svg>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </header>
 
         {/* Feed */}
@@ -737,12 +847,19 @@ export const ChatShell = () => {
           onScroll={handleFeedScroll}
           style={{
             flex: 1, overflowY: 'auto',
-            padding: '32px 20px 16px',
+            padding: isMobile ? '16px 12px 8px' : '32px 20px 16px',
             scrollbarWidth: 'thin',
             scrollbarColor: `rgba(26,95,188,0.15) transparent`,
+            display: 'flex', flexDirection: 'column',
           }}
         >
-          <div style={{ maxWidth: '760px', margin: '0 auto' }}>
+          <div style={{
+            maxWidth: '760px', margin: '0 auto', width: '100%', boxSizing: 'border-box',
+            flex: step === 'welcome' ? 1 : undefined,
+            display: step === 'welcome' ? 'flex' : undefined,
+            flexDirection: step === 'welcome' ? 'column' : undefined,
+            justifyContent: step === 'welcome' ? 'center' : undefined,
+          }}>
             <ChatFeed
               entries={entries}
               isThinking={isSubmitting}
@@ -755,7 +872,7 @@ export const ChatShell = () => {
         </div>
 
         {/* Composer */}
-        <div style={{ flexShrink: 0, maxWidth: '800px', width: '100%', margin: '0 auto', padding: '0 20px 20px' }}>
+        <div style={{ flexShrink: 0, maxWidth: '800px', width: '100%', boxSizing: 'border-box', margin: '0 auto', padding: isMobile ? '0 10px 14px' : '0 20px 20px' }}>
           <ChatComposer
             draft={draft}
             sessionId={sessionId}

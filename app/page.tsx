@@ -119,6 +119,14 @@ export default function HomePage() {
   const [rect,   setRect]   = useState<DOMRect | null>(null);
   const [morphing, setMorphing] = useState(false);
   const [isDark,  setIsDark]  = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   // Leer preferencia guardada
   useEffect(() => {
@@ -159,56 +167,41 @@ export default function HomePage() {
   return (
     <main
       style={{
-        height: '100vh',
+        minHeight: '100dvh',
         background: isDark ? DARK_BG : LIGHT_BG,
         color: textMain,
         fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        padding: '24px 20px',
-        position: 'relative', overflow: 'hidden',
+        padding: isMobile ? '72px 16px 32px' : '24px 20px',
+        position: 'relative', overflowX: 'hidden',
         transition: 'background 0.4s ease, color 0.3s ease',
+        boxSizing: 'border-box',
       }}
     >
       <style>{STYLES}</style>
 
       {/* Dark/Light toggle — top right */}
-      <div style={{ position: 'absolute', top: '18px', right: '20px', zIndex: 10 }}>
-        <div
-          onClick={toggleDark}
-          style={{
-            position: 'relative', width: '86px', height: '36px', borderRadius: '999px',
-            background: isDark ? '#1a2540' : '#e8f0fe',
-            border: `1.5px solid ${isDark ? 'rgba(26,95,188,0.35)' : 'rgba(26,95,188,0.2)'}`,
-            cursor: 'pointer', userSelect: 'none',
-            transition: 'background 0.3s ease, border-color 0.3s ease',
-            boxShadow: isDark ? '0 2px 10px rgba(0,0,0,0.3)' : '0 2px 8px rgba(26,95,188,0.1)',
-          }}
-        >
-          <span style={{
-            position: 'absolute', top: '50%', transform: 'translateY(-50%)',
-            left: isDark ? '12px' : '34px',
-            fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.04em',
-            color: isDark ? '#7aaac8' : '#1a5fbc',
-            transition: 'left 0.3s ease',
-            whiteSpace: 'nowrap',
-          }}>
-            {isDark ? 'Noche' : 'Día'}
-          </span>
-          <div style={{
-            position: 'absolute', top: '4px',
-            left: isDark ? '4px' : 'calc(100% - 40px)',
-            width: '28px', height: '28px', borderRadius: '50%',
-            background: isDark ? '#1e3460' : '#fff',
-            boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.4)' : '0 2px 8px rgba(26,95,188,0.2)',
-            display: 'grid', placeItems: 'center',
-            transition: 'left 0.3s cubic-bezier(0.4,0,0.2,1), background 0.3s ease',
-          }}>
+      <div style={{ position: 'absolute', top: '14px', right: '16px', zIndex: 10 }}>
+        {isMobile ? (
+          /* Mobile: solo botón icono circular */
+          <button
+            onClick={toggleDark}
+            title={isDark ? 'Modo claro' : 'Modo oscuro'}
+            style={{
+              width: '36px', height: '36px', borderRadius: '50%',
+              background: isDark ? '#1a2540' : '#e8f0fe',
+              border: `1.5px solid ${isDark ? 'rgba(26,95,188,0.35)' : 'rgba(26,95,188,0.2)'}`,
+              cursor: 'pointer', display: 'grid', placeItems: 'center',
+              boxShadow: isDark ? '0 2px 10px rgba(0,0,0,0.3)' : '0 2px 8px rgba(26,95,188,0.1)',
+              transition: 'background 0.3s ease', outline: 'none',
+            }}
+          >
             {isDark ? (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={isDark ? '#7aaac8' : '#1a5fbc'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7aaac8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>
               </svg>
             ) : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1a5fbc" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1a5fbc" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="5"/>
                 <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
                 <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
@@ -216,8 +209,54 @@ export default function HomePage() {
                 <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
               </svg>
             )}
+          </button>
+        ) : (
+          /* Desktop: pill con texto */
+          <div
+            onClick={toggleDark}
+            style={{
+              position: 'relative', width: '86px', height: '36px', borderRadius: '999px',
+              background: isDark ? '#1a2540' : '#e8f0fe',
+              border: `1.5px solid ${isDark ? 'rgba(26,95,188,0.35)' : 'rgba(26,95,188,0.2)'}`,
+              cursor: 'pointer', userSelect: 'none',
+              transition: 'background 0.3s ease, border-color 0.3s ease',
+              boxShadow: isDark ? '0 2px 10px rgba(0,0,0,0.3)' : '0 2px 8px rgba(26,95,188,0.1)',
+            }}
+          >
+            <span style={{
+              position: 'absolute', top: '50%', transform: 'translateY(-50%)',
+              left: isDark ? '12px' : '34px',
+              fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.04em',
+              color: isDark ? '#7aaac8' : '#1a5fbc',
+              transition: 'left 0.3s ease', whiteSpace: 'nowrap',
+            }}>
+              {isDark ? 'Noche' : 'Día'}
+            </span>
+            <div style={{
+              position: 'absolute', top: '4px',
+              left: isDark ? '4px' : 'calc(100% - 40px)',
+              width: '28px', height: '28px', borderRadius: '50%',
+              background: isDark ? '#1e3460' : '#fff',
+              boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.4)' : '0 2px 8px rgba(26,95,188,0.2)',
+              display: 'grid', placeItems: 'center',
+              transition: 'left 0.3s cubic-bezier(0.4,0,0.2,1), background 0.3s ease',
+            }}>
+              {isDark ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7aaac8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>
+                </svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1a5fbc" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="5"/>
+                  <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                  <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                </svg>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Ambient orbs */}
@@ -227,8 +266,8 @@ export default function HomePage() {
       </div>
 
       {/* Logo */}
-      <div style={{ marginBottom: '16px', textAlign: 'center', animation: 'fadeUp 0.5s ease' }}>
-        <img src="/logo.png" alt="Simplex" style={{ height: '140px', width: 'auto', filter: isDark ? 'drop-shadow(0 4px 24px rgba(0,120,180,0.35)) brightness(0.9)' : 'drop-shadow(0 4px 24px rgba(0,120,180,0.2))' }} />
+      <div style={{ marginBottom: isMobile ? '10px' : '16px', textAlign: 'center', animation: 'fadeUp 0.5s ease' }}>
+        <img src="/logo.png" alt="Simplex" style={{ height: isMobile ? '90px' : '140px', width: 'auto', filter: isDark ? 'drop-shadow(0 4px 24px rgba(0,120,180,0.35)) brightness(0.9)' : 'drop-shadow(0 4px 24px rgba(0,120,180,0.2))' }} />
       </div>
 
       {/* Badge */}
@@ -244,25 +283,36 @@ export default function HomePage() {
       </div>
 
       {/* Título con typewriter */}
-      <div style={{ maxWidth: '640px', marginBottom: '24px', animation: 'fadeUp 0.5s ease 0.15s both', textAlign: 'center' }}>
+      <div style={{ maxWidth: '640px', width: '100%', marginBottom: isMobile ? '16px' : '24px', animation: 'fadeUp 0.5s ease 0.15s both', textAlign: 'center' }}>
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
-          <h1 style={{
-            fontSize: 'clamp(1.8rem, 4vw, 2.8rem)', fontWeight: 700, lineHeight: 1.1, margin: 0,
-            color: textMain, whiteSpace: 'nowrap',
-            position: 'relative',
-            transition: 'color 0.3s ease',
-          }}>
-            {/* Texto fantasma — fija el ancho al máximo siempre */}
-            <span style={{ visibility: 'hidden', pointerEvents: 'none', userSelect: 'none' }}>
-              Asistente EOQ Dinámico
-            </span>
-            {/* Texto real encima */}
-            <span style={{ position: 'absolute', left: 0, top: 0 }}>
+          {isMobile ? (
+            /* Mobile: texto normal, sin truco de ghost span que causa overflow */
+            <h1 style={{
+              fontSize: 'clamp(1.6rem, 7vw, 2rem)',
+              fontWeight: 700, lineHeight: 1.2, margin: 0,
+              color: textMain, transition: 'color 0.3s ease',
+              textAlign: 'center', width: '100%',
+            }}>
               <TitleTypewriter />
-            </span>
-          </h1>
+            </h1>
+          ) : (
+            /* Desktop: ghost span fija el ancho para evitar layout shift */
+            <h1 style={{
+              fontSize: 'clamp(1.8rem, 4vw, 2.8rem)',
+              fontWeight: 700, lineHeight: 1.1, margin: 0,
+              color: textMain, whiteSpace: 'nowrap',
+              position: 'relative', transition: 'color 0.3s ease',
+            }}>
+              <span style={{ visibility: 'hidden', pointerEvents: 'none', userSelect: 'none' }}>
+                Asistente EOQ Dinámico
+              </span>
+              <span style={{ position: 'absolute', left: 0, top: 0 }}>
+                <TitleTypewriter />
+              </span>
+            </h1>
+          )}
         </div>
-        <p style={{ fontSize: '0.97rem', color: textMuted, lineHeight: 1.65, margin: 0, transition: 'color 0.3s ease' }}>
+        <p style={{ fontSize: isMobile ? '0.9rem' : '0.97rem', color: textMuted, lineHeight: 1.65, margin: 0, transition: 'color 0.3s ease' }}>
           Describí tu problema de inventario en lenguaje natural. El asistente elige el modelo,
           calcula el plan óptimo y te explica cada decisión.
         </p>
@@ -317,42 +367,57 @@ export default function HomePage() {
         )}
       </AnimatePresence>
 
-      {/* Feature cards — fila única, sin scroll */}
-      <div style={{ display: 'flex', gap: '16px', width: '100%', maxWidth: '960px', flexWrap: 'nowrap' }}>
+      {/* Feature cards */}
+      <div style={{
+        display: 'flex',
+        gap: isMobile ? '12px' : '16px',
+        width: '100%', maxWidth: '960px',
+        flexWrap: isMobile ? 'wrap' : 'nowrap',
+        marginTop: isMobile ? '8px' : '0',
+      }}>
         {FEATURES.map((f, i) => (
           <div
             key={f.label}
             className="feature-card"
             style={{
-              flex: 1, borderRadius: '18px', padding: '20px 20px 18px',
+              flex: isMobile ? '0 0 100%' : 1,
+              boxSizing: 'border-box',
+              borderRadius: '16px',
+              padding: isMobile ? '16px' : '20px 20px 18px',
               background: cardBg,
               border: `1px solid ${cardBorder}`,
               backdropFilter: 'blur(16px)',
               boxShadow: isDark ? '0 2px 16px rgba(0,0,0,0.3)' : '0 2px 16px rgba(0,100,160,0.07)',
               animation: `fadeUp 0.5s ease ${0.3 + i * 0.1}s both`,
-              display: 'flex', flexDirection: 'column',
+              display: 'flex', flexDirection: isMobile ? 'row' : 'column',
+              alignItems: isMobile ? 'flex-start' : 'stretch',
+              gap: isMobile ? '14px' : '0',
               transition: 'background 0.3s ease, border-color 0.3s ease',
             }}
           >
             {/* Lottie icon */}
-            <div style={{ width: '64px', height: '64px', marginBottom: '8px' }}>
+            <div style={{ width: isMobile ? '48px' : '64px', height: isMobile ? '48px' : '64px', marginBottom: isMobile ? '0' : '8px', flexShrink: 0 }}>
               <DotLottieReact src={f.lottie} loop autoplay style={{ width: '100%', height: '100%' }} />
             </div>
 
-            {/* Tag + Title */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-              <span style={{ fontWeight: 700, color: textMain, fontSize: '0.97rem', transition: 'color 0.3s ease' }}>{f.label}</span>
-              <span style={{
-                padding: '2px 8px', borderRadius: '999px',
-                background: badgeBg, border: `1px solid ${badgeBorder}`,
-                color: badgeColor, fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.04em',
-                transition: 'background 0.3s ease, color 0.3s ease',
-              }}>{f.tag}</span>
-            </div>
+            {/* Content */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {/* Tag + Title */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: 700, color: textMain, fontSize: isMobile ? '0.92rem' : '0.97rem', transition: 'color 0.3s ease' }}>{f.label}</span>
+                <span style={{
+                  padding: '2px 8px', borderRadius: '999px',
+                  background: badgeBg, border: `1px solid ${badgeBorder}`,
+                  color: badgeColor, fontSize: '0.67rem', fontWeight: 600, letterSpacing: '0.04em',
+                  transition: 'background 0.3s ease, color 0.3s ease',
+                  whiteSpace: 'nowrap',
+                }}>{f.tag}</span>
+              </div>
 
-            {/* Description */}
-            <div style={{ color: textMuted, fontSize: '0.84rem', lineHeight: 1.6, marginBottom: '14px', flex: 1, transition: 'color 0.3s ease' }}>
-              {f.desc}
+              {/* Description */}
+              <div style={{ color: textMuted, fontSize: isMobile ? '0.82rem' : '0.84rem', lineHeight: 1.55, transition: 'color 0.3s ease' }}>
+                {f.desc}
+              </div>
             </div>
 
           </div>
