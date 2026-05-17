@@ -47,8 +47,6 @@ const FIELD_ALIASES: Record<string, string> = {
   holding_cost: 'holdingCost',
   setupCost: 'setupCost',
   setup_cost: 'setupCost',
-  leadTime: 'leadTime',
-  lead_time: 'leadTime',
 };
 
 const normalizeFieldName = (field: string): string => FIELD_ALIASES[field] ?? field;

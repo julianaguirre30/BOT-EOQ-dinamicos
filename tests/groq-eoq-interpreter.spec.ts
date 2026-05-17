@@ -103,7 +103,7 @@ describe('GroqEoqInterpreter', () => {
     expect(request?.messages[1]?.content).toContain('extractionTargets');
     expect(request?.messages[1]?.content).toContain('periodDemands');
     expect(request?.messages[1]?.content).toContain('initialInventory');
-    expect(request?.messages[1]?.content).toContain('reposición inmediata');
+        expect(request?.messages[1]?.content).toContain('reponen al toque');
   });
 
   it('downgrades materially empty extraction when obvious EOQ evidence is present', async () => {
@@ -136,18 +136,50 @@ describe('GroqEoqInterpreter', () => {
         'Che, arranco con 15 unidades y tengo demandas mensuales de 80, 120 y 60. Cada pedido sale 150 pesos, mantener cada unidad cuesta 3 por mes y la reposición es inmediata.',
     });
 
-    expect(result.confidence).toBeLessThan(0.6);
-    expect(result.missingCriticalFields).toEqual(
-      expect.arrayContaining(['periodDemands', 'holdingCost', 'setupCost', 'leadTime', 'initialInventory']),
-    );
-    expect(result.issues).toEqual(
-      expect.arrayContaining([
-        'interpreter_under_extracted',
-        'interpreter_under_extracted_periodDemands',
-        'interpreter_under_extracted_holdingCost',
-        'interpreter_under_extracted_setupCost',
-      ]),
-    );
+        expect(result.confidence).toBeGreaterThanOrEqual(0.6);
+        expect(result.extractedValues).toMatchObject({
+          periodDemands: [80, 120, 60],
+          holdingCost: 3,
+          setupCost: 150,
+          initialInventory: 15,
+        });
+        expect(result.missingCriticalFields).toEqual([]);
+  });
+
+  it('recovers obvious colloquial Spanish EOQ values before routing', async () => {
+    const interpreter = new GroqEoqInterpreter({
+      client: createClient(
+        JSON.stringify({
+          normalizedText: 'tengo demanda de 10,20,30 y costo de almacenamiento de 40. el costo de pedido es 45',
+          extractedValues: {},
+          units: {},
+          taxonomyTags: [
+            {
+              family: 'inventory',
+              topic: 'eoq',
+              variant: 'standard',
+              status: 'supported',
+              notes: [],
+            },
+          ],
+          confidence: 0.25,
+          missingCriticalFields: [],
+          issues: [],
+        }),
+      ),
+      model: 'llama-3.3-70b-versatile',
+    });
+
+    const result = await interpreter.interpret({
+      sessionId: 'groq-colloquial-recovery',
+      userText: 'tengo demanda de 10,20,30 y costo de almacenamiento de 40. el costo de pedido es 45',
+    });
+
+    expect(result.extractedValues.periodDemands).toEqual([10, 20, 30]);
+    expect(result.extractedValues.holdingCost).toBe(40);
+    expect(result.extractedValues.setupCost).toBe(45);
+    expect(result.confidence).toBeGreaterThanOrEqual(0.6);
+    expect(result.missingCriticalFields).toEqual([]);
   });
 
   it('rejects malformed JSON from the provider before it reaches routing/solve', async () => {

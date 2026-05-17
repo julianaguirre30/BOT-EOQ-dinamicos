@@ -26,7 +26,6 @@ describe('EOQ contract schemas', () => {
         branch: 'with_setup',
         demandRate: 1200,
         holdingCost: 8,
-        leadTime: 0,
       }),
     ).toThrow();
 
@@ -35,7 +34,6 @@ describe('EOQ contract schemas', () => {
       variant: 'scalar',
       demandRate: 1200,
       holdingCost: 8,
-      leadTime: 0,
     });
 
     expect(noSetup.branch).toBe('no_setup');
@@ -105,7 +103,6 @@ describe('EOQ contract schemas', () => {
         periodDemands: [300, 400, 200],
         holdingCost: 12,
         setupCost: 180,
-        leadTime: 0,
         variant: 'scalar',
       },
       normalizedInput: {
@@ -114,9 +111,7 @@ describe('EOQ contract schemas', () => {
         periodDemands: [300, 400, 200],
         holdingCost: 12,
         setupCost: 180,
-        leadTime: 0,
       },
-      defaultsApplied: ['lead_time=0'],
     });
 
     expect(validation.ok).toBe(true);

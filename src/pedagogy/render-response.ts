@@ -63,10 +63,6 @@ const describeBlockedFlow = (routingResult: RoutingResult): string => {
 };
 
 const humanizeDefault = (value: string): string => {
-  if (value === 'lead_time=0') {
-    return 'Se tomó lead time = 0 porque el enunciado no daba otro valor.';
-  }
-
   return `Se aplicó el supuesto visible: ${value}.`;
 };
 
@@ -93,8 +89,6 @@ const humanizeValidationError = (value: string): string => {
       return 'los costos unitarios por período no pueden ser negativos';
     case 'invalid_unit_cost_by_period_length':
       return 'la cantidad de costos unitarios por período no coincide con la demanda';
-    case 'invalid_lead_time':
-      return 'el lead time no puede ser negativo';
     case 'incompatible_units_or_time_basis':
       return 'hay unidades o bases de tiempo incompatibles';
     case 'conflicting_setup_and_no_setup_cost_structure':
@@ -310,7 +304,7 @@ const buildSolvedPedagogy = (
     solverInput.branch === 'with_setup'
       ? 'Se incluye costo fijo de preparación/pedido, así que conviene optimizar agrupando períodos solo cuando el trade-off lo justifica.'
       : 'No hay costo fijo de preparación/pedido, así que el modelo exacto evita stock innecesario y repone solo lo que se consume en cada período.',
-    `Holding cost usado: ${solverInput.holdingCost}. Lead time visible: ${solverInput.leadTime}.`,
+    `Holding cost usado: ${solverInput.holdingCost}.`,
   ],
   algorithm: [
     `Se resolvió con ${describeSolvedAlgorithm(solverInput, solverOutput)}.`,

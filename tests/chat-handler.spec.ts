@@ -24,7 +24,6 @@ const solvedResponse = FinalResponseEnvelopeSchema.parse({
       variant: 'scalar',
       demandRate: 200,
       holdingCost: 3,
-      leadTime: 0,
     },
   },
   validation: {
@@ -35,14 +34,12 @@ const solvedResponse = FinalResponseEnvelopeSchema.parse({
       variant: 'scalar',
       demandRate: 200,
       holdingCost: 3,
-      leadTime: 0,
     },
     normalizedInput: {
       branch: 'no_setup',
       variant: 'scalar',
       demandRate: 200,
       holdingCost: 3,
-      leadTime: 0,
     },
     errors: [],
     unsupportedReasons: [],
@@ -54,7 +51,6 @@ const solvedResponse = FinalResponseEnvelopeSchema.parse({
     variant: 'scalar',
     demandRate: 200,
     holdingCost: 3,
-    leadTime: 0,
   },
   solverOutput: {
     branch: 'no_setup',
