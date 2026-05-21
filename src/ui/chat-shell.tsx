@@ -5,7 +5,9 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import { SimpleChatResponse, GenericResponse, SolveResponse, FollowUpResponse } from '../app/runtime/simple-handler';
 import { ChatFeed } from './chat-feed';
 import { ChatComposer } from './chat-composer';
-import { ChatEntry } from './types';
+import { ChatEntry, SolvePayload } from './types';
+import { ThemeToggle } from './theme-toggle';
+import { PrintableResult, PRINT_STYLES } from './printable-result';
 
 // ─── Paletas ──────────────────────────────────────────────────────────────────
 const LIGHT = {
@@ -102,10 +104,14 @@ const Sidebar = ({
     transition: 'width 0.22s ease, min-width 0.22s ease',
   };
 
+  const sidebarBg = isMobile
+    ? (isDark ? 'rgba(10,18,38,0.98)' : 'rgba(240,248,255,0.98)')
+    : palette.sidebar;
+
   return (
     <aside
       style={{
-        background: palette.sidebar,
+        background: sidebarBg,
         backdropFilter: 'blur(40px)',
         WebkitBackdropFilter: 'blur(40px)',
         borderRight: `1px solid ${palette.sidebarBorder}`,
@@ -272,6 +278,122 @@ const Sidebar = ({
   );
 };
 
+// ─── Wizard Stepper ───────────────────────────────────────────────────────────
+type WizardStep = 'periodCount' | 'demands' | 'hasOrderCost' | 'orderCost' | 'holdingCost' | 'completed';
+
+const WIZARD_STEPS_WITH_SETUP: { key: WizardStep; label: string }[] = [
+  { key: 'periodCount',  label: 'Períodos'       },
+  { key: 'demands',      label: 'Demandas'        },
+  { key: 'hasOrderCost', label: 'Tipo de costo'   },
+  { key: 'orderCost',    label: 'Costo fijo'      },
+  { key: 'holdingCost',  label: 'Almacenamiento'  },
+  { key: 'completed',    label: 'Resultado'        },
+];
+
+const WIZARD_STEPS_NO_SETUP: { key: WizardStep; label: string }[] = [
+  { key: 'periodCount',  label: 'Períodos'       },
+  { key: 'demands',      label: 'Demandas'        },
+  { key: 'hasOrderCost', label: 'Tipo de costo'   },
+  { key: 'holdingCost',  label: 'Almacenamiento'  },
+  { key: 'completed',    label: 'Resultado'        },
+];
+
+const WizardStepper = ({
+  step, hasOrderCost, isDark, isMobile,
+}: {
+  step: string;
+  hasOrderCost?: boolean;
+  isDark?: boolean;
+  isMobile?: boolean;
+}) => {
+  const WIZARD_STEPS = hasOrderCost === false ? WIZARD_STEPS_NO_SETUP : WIZARD_STEPS_WITH_SETUP;
+  const wizardKeys: WizardStep[] = ['periodCount', 'demands', 'hasOrderCost', 'orderCost', 'holdingCost', 'completed'];
+  if (!wizardKeys.includes(step as WizardStep)) return null;
+
+  const currentIdx = WIZARD_STEPS.findIndex(s => s.key === step);
+  const palette = isDark ? DARK : LIGHT;
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: isMobile ? '10px 12px 6px' : '12px 20px 6px',
+      gap: 0,
+      maxWidth: '760px', width: '100%', boxSizing: 'border-box', margin: '0 auto',
+    }}>
+      {WIZARD_STEPS.map((s, i) => {
+        const done    = i < currentIdx;
+        const active  = i === currentIdx;
+        const future  = i > currentIdx;
+
+        return (
+          <div key={s.key} style={{ display: 'flex', alignItems: 'center', flex: i < WIZARD_STEPS.length - 1 ? 1 : undefined }}>
+            {/* Step circle + label */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', minWidth: isMobile ? '40px' : '56px' }}>
+              {/* Circle */}
+              <div style={{
+                width:  active ? (isMobile ? '26px' : '30px') : (isMobile ? '22px' : '26px'),
+                height: active ? (isMobile ? '26px' : '30px') : (isMobile ? '22px' : '26px'),
+                borderRadius: '50%',
+                background: done
+                  ? palette.grad
+                  : active
+                    ? palette.grad
+                    : isDark ? 'rgba(26,95,188,0.12)' : 'rgba(26,95,188,0.07)',
+                border: future
+                  ? `1.5px solid ${isDark ? 'rgba(26,95,188,0.25)' : 'rgba(26,95,188,0.18)'}`
+                  : 'none',
+                display: 'grid', placeItems: 'center',
+                boxShadow: active ? '0 2px 10px rgba(26,95,188,0.28)' : 'none',
+                transition: 'all 0.25s ease',
+                flexShrink: 0,
+              }}>
+                {done ? (
+                  <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                    <path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                ) : (
+                  <span style={{
+                    fontSize: isMobile ? '10px' : '11px',
+                    fontWeight: 700,
+                    color: active ? '#fff' : (isDark ? palette.textFaint : palette.textFaint),
+                    lineHeight: 1,
+                  }}>
+                    {i + 1}
+                  </span>
+                )}
+              </div>
+              {/* Label — oculto en mobile si no es el paso activo */}
+              {(!isMobile || active) && (
+                <span style={{
+                  fontSize: isMobile ? '10px' : '10px',
+                  fontWeight: active ? 600 : 400,
+                  color: done || active ? (isDark ? palette.cyan : palette.blue) : palette.textFaint,
+                  whiteSpace: 'nowrap',
+                  transition: 'color 0.25s ease',
+                }}>
+                  {s.label}
+                </span>
+              )}
+            </div>
+
+            {/* Connector line */}
+            {i < WIZARD_STEPS.length - 1 && (
+              <div style={{
+                flex: 1, height: '2px', marginBottom: (!isMobile || active) ? '18px' : '0',
+                background: done
+                  ? palette.grad
+                  : isDark ? 'rgba(26,95,188,0.15)' : 'rgba(26,95,188,0.12)',
+                transition: 'background 0.3s ease',
+                minWidth: isMobile ? '8px' : '16px',
+              }} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 // ─── Shell ────────────────────────────────────────────────────────────────────
 const initialEntries: ChatEntry[] = [];
 
@@ -296,6 +418,7 @@ export const ChatShell = () => {
   const [conversations,       setConversations]       = useState<ConvRecord[]>([]);
   const [activeConvId,        setActiveConvId]        = useState<string | undefined>();
   const [isDark,              setIsDark]              = useState(false);
+  const [lastSolvePayload,    setLastSolvePayload]    = useState<SolvePayload | null>(null);
   const [isMobile,            setIsMobile]            = useState(false);
   const [mobileSidebarOpen,   setMobileSidebarOpen]   = useState(false);
 
@@ -649,15 +772,17 @@ export const ChatShell = () => {
             throw new Error('error' in payload && payload.error ? payload.error : 'No se pudo completar el cálculo.');
           const solvePayload = payload as SolveResponse;
           setSessionId(solvePayload.sessionId);
+          const sp: SolvePayload = {
+            sessionId:    solvePayload.sessionId,
+            solverInput:  solvePayload.solverInput,
+            solverOutput: solvePayload.solverOutput,
+          };
+          setLastSolvePayload(sp);
           setEntries(prev => [...prev, {
             id: `assistant-${crypto.randomUUID()}`,
             role: 'assistant' as const,
             text: solvePayload.message,
-            solvePayload: {
-              sessionId:   solvePayload.sessionId,
-              solverInput: solvePayload.solverInput,
-              solverOutput: solvePayload.solverOutput,
-            },
+            solvePayload: sp,
           }]);
           appendAssistantMessage('¿Tenés alguna pregunta sobre el plan o los costos?');
         } catch (err) {
@@ -712,14 +837,14 @@ export const ChatShell = () => {
   return (
     <div
       style={{
-        height: '100dvh',
+        position: 'fixed',
+        inset: 0,
         display: 'flex',
         background: palette.pageBg,
         color: palette.text,
         fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
         overflow: 'hidden',
         transition: 'background 0.3s ease, color 0.3s ease',
-        position: 'relative',
       }}
     >
       {/* Ambient orbs */}
@@ -729,6 +854,7 @@ export const ChatShell = () => {
         @keyframes orbFloat3 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(20px,35px) scale(1.04)} }
         .theme-toggle { transition: background 0.18s, transform 0.18s; }
         .theme-toggle:hover { transform: scale(1.1); }
+        ${PRINT_STYLES}
       `}</style>
 
       {/* Mobile sidebar backdrop */}
@@ -810,93 +936,17 @@ export const ChatShell = () => {
             )}
           </div>
 
-          {/* Toggle día/noche — pill en desktop, solo icono en mobile */}
-          {isMobile ? (
-            <button
-              onClick={() => setIsDark(v => !v)}
-              title={isDark ? 'Modo claro' : 'Modo oscuro'}
-              style={{
-                width: '36px', height: '36px', borderRadius: '50%',
-                background: isDark ? '#1a2540' : '#e8f0fe',
-                border: `1.5px solid ${isDark ? 'rgba(26,95,188,0.35)' : 'rgba(26,95,188,0.2)'}`,
-                cursor: 'pointer', display: 'grid', placeItems: 'center',
-                flexShrink: 0, transition: 'background 0.3s', outline: 'none',
-              }}
-            >
-              {isDark ? (
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7aaac8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                </svg>
-              ) : (
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1a5fbc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="5"/>
-                  <line x1="12" y1="1" x2="12" y2="3"/>
-                  <line x1="12" y1="21" x2="12" y2="23"/>
-                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                  <line x1="1" y1="12" x2="3" y2="12"/>
-                  <line x1="21" y1="12" x2="23" y2="12"/>
-                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-                </svg>
-              )}
-            </button>
-          ) : (
-            <div
-              onClick={() => setIsDark(v => !v)}
-              title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-              style={{
-                display: 'flex', alignItems: 'center',
-                width: '100px', height: '36px', borderRadius: '999px',
-                background: isDark ? '#1a2540' : '#e8f0fe',
-                border: `1.5px solid ${isDark ? 'rgba(26,95,188,0.35)' : 'rgba(26,95,188,0.2)'}`,
-                cursor: 'pointer', userSelect: 'none',
-                position: 'relative', overflow: 'hidden',
-                transition: 'background 0.35s ease, border 0.35s ease',
-                flexShrink: 0,
-              }}
-            >
-              <span style={{
-                position: 'absolute',
-                left: isDark ? '44px' : '14px',
-                fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em',
-                color: isDark ? '#7aaac8' : '#1a5fbc',
-                textTransform: 'uppercase',
-                transition: 'left 0.35s cubic-bezier(0.4,0,0.2,1), color 0.35s',
-                whiteSpace: 'nowrap',
-              }}>
-                {isDark ? 'Noche' : 'Día'}
-              </span>
-              <div style={{
-                position: 'absolute',
-                left: isDark ? '4px' : 'calc(100% - 40px)',
-                width: '28px', height: '28px', borderRadius: '50%',
-                background: isDark ? '#0d1829' : '#fff',
-                boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.5)' : '0 2px 8px rgba(26,95,188,0.2)',
-                display: 'grid', placeItems: 'center', fontSize: '14px',
-                transition: 'left 0.35s cubic-bezier(0.4,0,0.2,1), background 0.35s',
-              }}>
-                {isDark ? (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7aaac8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                  </svg>
-                ) : (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1a5fbc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="5"/>
-                    <line x1="12" y1="1" x2="12" y2="3"/>
-                    <line x1="12" y1="21" x2="12" y2="23"/>
-                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                    <line x1="1" y1="12" x2="3" y2="12"/>
-                    <line x1="21" y1="12" x2="23" y2="12"/>
-                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-                  </svg>
-                )}
-              </div>
-            </div>
-          )}
+          {/* Toggle día/noche */}
+          <ThemeToggle isDark={isDark} onToggle={() => setIsDark(v => !v)} isMobile={isMobile} />
         </header>
+
+        {/* Wizard stepper */}
+        <WizardStepper
+          step={step}
+          hasOrderCost={problemData.hasOrderCost}
+          isDark={isDark}
+          isMobile={isMobile}
+        />
 
         {/* Feed */}
         <div
@@ -928,21 +978,63 @@ export const ChatShell = () => {
           </div>
         </div>
 
-        {/* Composer */}
-        <div style={{ flexShrink: 0, maxWidth: '800px', width: '100%', boxSizing: 'border-box', margin: '0 auto', padding: isMobile ? '0 10px 14px' : '0 20px 20px' }}>
-          <ChatComposer
-            draft={draft}
-            sessionId={sessionId}
-            pendingResetProblem={pendingResetProblem}
-            error={error}
-            isSubmitting={isSubmitting}
-            disabled={step === 'welcome'}
-            isDark={isDark}
-            onChange={setDraft}
-            onSubmit={handleSubmit}
-            onResetProblem={resetConversation}
-          />
-        </div>
+        {/* Composer — oculto en welcome */}
+        {step !== 'welcome' && (
+          <div style={{
+            flexShrink: 0, maxWidth: '800px', width: '100%', boxSizing: 'border-box',
+            margin: '0 auto',
+            padding: isMobile ? '0 10px calc(14px + env(safe-area-inset-bottom, 0px))' : '0 20px 20px',
+          }}>
+            {/* Botón exportar PDF — fila propia encima del composer */}
+            {step === 'completed' && lastSolvePayload && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+                <button
+                  onClick={() => window.print()}
+                  title="Exportar resultado a PDF"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    padding: isMobile ? '9px 14px' : '9px 18px',
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #1a5fbc, #00bcd4)',
+                    color: '#fff', fontWeight: 700,
+                    fontSize: isMobile ? '0.8rem' : '0.84rem',
+                    border: 'none', cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    boxShadow: '0 3px 12px rgba(26,95,188,0.28)',
+                    whiteSpace: 'nowrap',
+                    transition: 'transform 0.18s ease, box-shadow 0.18s ease',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 6px 20px rgba(26,95,188,0.4)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 3px 12px rgba(26,95,188,0.28)'; }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  {isMobile ? 'PDF' : 'Exportar PDF'}
+                </button>
+              </div>
+            )}
+
+            <ChatComposer
+              draft={draft}
+              sessionId={sessionId}
+              pendingResetProblem={pendingResetProblem}
+              error={error}
+              isSubmitting={isSubmitting}
+              disabled={false}
+              isDark={isDark}
+              onChange={setDraft}
+              onSubmit={handleSubmit}
+              onResetProblem={resetConversation}
+            />
+          </div>
+        )}
+
+        {/* Contenido imprimible — invisible en pantalla, visible al imprimir */}
+        {lastSolvePayload && <PrintableResult solvePayload={lastSolvePayload} />}
+
       </div>
     </div>
   );

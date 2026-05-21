@@ -162,7 +162,7 @@ const WelcomeState = ({
   // Modo completo: robot + título + descripción + botón
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 20px 32px', textAlign: 'center', gap: '16px' }}>
-      <div style={{ width: '105px', height: '105px', animation: 'fadeSlideIn 0.5s ease' }}>
+      <div style={{ width: '108px', height: '108px', animation: 'fadeSlideIn 0.5s ease' }}>
         <DotLottieReact src="/RobotSaludando.lottie" loop autoplay style={{ width: '100%', height: '100%' }} />
       </div>
       <div style={{ animation: 'fadeSlideUp 0.5s ease 0.1s both' }}>
@@ -173,10 +173,10 @@ const WelcomeState = ({
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           animation: 'gradMove 2.5s linear infinite',
         }}>
-          ¿En qué te ayudo hoy?
+          Resolvé tu problema de inventario
         </h2>
         <p style={{ color: P.textMuted, fontSize: '0.95rem', margin: 0, lineHeight: 1.65, maxWidth: '400px' }}>
-          Describí tu problema de inventario y encontramos el plan de pedidos óptimo.
+          Te guío paso a paso para calcular el plan de pedidos de costo mínimo para tu problema de inventario.
         </p>
       </div>
       {onStartProblem && (
@@ -296,11 +296,13 @@ export const ChatFeed = ({
   if (showStartButton) return (
     <>
       <style>{STYLES}</style>
-      {entries.map((entry) =>
-        entry.role === 'user'
+      {entries.map((entry, i) => {
+        const isLastAssistant = entry.role === 'assistant' &&
+          entries.slice(i + 1).every(e => e.role === 'user');
+        return entry.role === 'user'
           ? <UserMessage key={entry.id} entry={entry} isDark={isDark} />
-          : <AssistantMessage key={entry.id} entry={entry as ChatEntry & { role: 'assistant' }} isLast={false} isDark={isDark} onOptionSelect={onOptionSelect} />,
-      )}
+          : <AssistantMessage key={entry.id} entry={entry as ChatEntry & { role: 'assistant' }} isLast={isLastAssistant} isDark={isDark} onOptionSelect={onOptionSelect} />;
+      })}
       <WelcomeState onStartProblem={onStartProblem} isDark={isDark} compact={entries.length > 0} />
     </>
   );
