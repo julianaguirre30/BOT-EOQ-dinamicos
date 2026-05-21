@@ -55,10 +55,10 @@ type StoredEntry = { id: string; role: 'user' | 'assistant'; text: string };
 type ConvRecord  = { id: string; label: string; ts: number; entries?: StoredEntry[] };
 
 const QUICK_EXAMPLES = [
-  '¿Para qué sirve este modelo?',
+  '¿Qué es un modelo EOQ dinámico?',
+  '¿Qué diferencia hay entre un modelo EOQ dinamico y uno estático?',
+  '¿Qué algoritmos hay para resolver este tipo de problemas?',
   '¿Qué datos necesito para resolver un problema?',
-  '¿Cuándo conviene usar Wagner-Whitin y no EOQ clásico?',
-  '¿Qué significa el costo relevante total?',
   '¿Por qué a veces conviene pedir de más en un período?',
   '¿Qué pasa si no tengo costo fijo de pedido?',
   '¿El modelo funciona si la demanda es 0 en algún período?',
@@ -230,7 +230,7 @@ const Sidebar = ({
         {!effectiveCollapsed && (
           <div style={{ marginTop: conversations.length > 0 ? '16px' : '8px' }}>
             <div style={{ fontSize: '0.69rem', color: palette.textFaint, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '8px 4px 6px' }}>
-              Conceptos rápidos
+              Preguntas rápidas
             </div>
             {QUICK_EXAMPLES.map((ex, i) => (
               <button
@@ -288,7 +288,7 @@ export const ChatShell = () => {
   const [error,               setError]               = useState<string | null>(null);
   const [isSubmitting,        setIsSubmitting]        = useState(false);
   const [pendingResetProblem, setPendingResetProblem] = useState(false);
-  const [step,                setStep]                = useState<'welcome' | 'periodCount' | 'demands' | 'hasOrderCost' | 'orderCost' | 'holdingCost' | 'completed'>('welcome');
+  const [step,                setStep]                = useState<'welcome' | 'chatting' | 'periodCount' | 'demands' | 'hasOrderCost' | 'orderCost' | 'holdingCost' | 'completed'>('welcome');
   const [problemData,         setProblemData]         = useState(initialProblemData);
   const [sidebarCollapsed,    setSidebarCollapsed]    = useState(false);
   const [conversations,       setConversations]       = useState<ConvRecord[]>([]);
@@ -447,8 +447,20 @@ export const ChatShell = () => {
 
     setEntries(prev => [...prev, { id: `user-${crypto.randomUUID()}`, role: 'user' as const, text }]);
 
-    // Sin sesión: pregunta genérica conceptual, step se mantiene en 'welcome'
+    // Sin sesión: pregunta genérica conceptual → modo chat libre
     if (!sessionId) {
+      // Crear conversación si no hay activa y transicionar a 'chatting'
+      // para habilitar la caja de texto y permitir seguir preguntando.
+      const convId = activeConvId ?? crypto.randomUUID();
+      if (!activeConvId) {
+        setActiveConvId(convId);
+        setConversations(prev => {
+          if (prev.find(x => x.id === convId)) return prev;
+          return [{ id: convId, label: text.slice(0, 40), ts: Date.now() }, ...prev].slice(0, 3);
+        });
+      }
+      if (step === 'welcome') setStep('chatting');
+
       try {
         setIsSubmitting(true);
         const res = await fetch('/api/chat', {
@@ -512,6 +524,31 @@ export const ChatShell = () => {
       setEntries(prev => [...prev, { id: `user-${crypto.randomUUID()}`, role: 'user' as const, text: userText }]);
 
       const normalized = userText.toLowerCase().trim();
+
+      // ── Chat libre conceptual (sin sesión de problema resuelto) ──────────
+      if (step === 'chatting') {
+        try {
+          setIsSubmitting(true);
+          const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'generic', userText }),
+          });
+          const payload = (await res.json()) as SimpleChatResponse | { error?: string };
+          if (!res.ok || !('type' in payload))
+            throw new Error('error' in payload && payload.error ? payload.error : 'No se pudo responder.');
+          setEntries(prev => [...prev, {
+            id: `assistant-${crypto.randomUUID()}`,
+            role: 'assistant' as const,
+            text: (payload as GenericResponse).message,
+          }]);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Falló la consulta.');
+        } finally {
+          setIsSubmitting(false);
+        }
+        return;
+      }
 
       if (step === 'periodCount') {
         const periodCount = Number(normalized);

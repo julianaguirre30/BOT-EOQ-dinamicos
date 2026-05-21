@@ -13,6 +13,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Parámetros inválidos.' }, { status: 400 });
     }
     console.error('[chat/route]', error);
-    return NextResponse.json({ error: 'Error inesperado en el servidor.' }, { status: 500 });
+    const detail = error instanceof Error ? error.message : 'Error desconocido';
+    return NextResponse.json(
+      { error: `Error inesperado en el servidor: ${detail}` },
+      { status: 500 },
+    );
   }
 }

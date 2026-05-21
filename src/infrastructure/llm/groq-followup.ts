@@ -3,16 +3,34 @@ import { ConversationMessage } from '../../session/simple-session';
 import { loadLlmInterpreterConfig } from '../../config/llm-config';
 import { EOQ_THEORY_REFERENCE, EOQ_BIBLIOGRAPHY_CITATION } from '../../domain/knowledge/eoq-theory';
 
+const FORMAT_RULES = [
+  'Formato:',
+  '- Español, claro y pedagógico, máximo 4–5 líneas.',
+  '- Saltos de línea para separar ideas; "•" para listas.',
+  '- Sin markdown (* ** #) ni fórmulas largas.',
+].join('\n');
+
+const THEORY_AND_CITATION = [
+  'Para preguntas conceptuales basate en la TEORÍA DE REFERENCIA de más abajo.',
+  'Si la respuesta apoya un concepto teórico, terminala en una línea aparte con:',
+  `— ${EOQ_BIBLIOGRAPHY_CITATION}`,
+  'No cites la fuente cuando solo expliques el plan ya calculado o redirijas fuera de dominio.',
+  '',
+  EOQ_THEORY_REFERENCE,
+].join('\n');
+
 const buildSystemPrompt = (solverInput: SolverInput, solverOutput: SolverOutput): string => {
   const demands = solverInput.periodDemands?.join(', ') ?? solverInput.demandRate;
   const hasSetup = solverInput.branch === 'with_setup';
-  const setupCost = hasSetup ? (solverInput as Extract<SolverInput, { branch: 'with_setup'; variant: 'scalar' }>).setupCost : null;
+  const setupCost = hasSetup
+    ? (solverInput as Extract<SolverInput, { branch: 'with_setup'; variant: 'scalar' }>).setupCost
+    : null;
 
   const plan = solverOutput.policy.replenishmentPlan
     .map((p) =>
       p.period === p.coversThroughPeriod
-        ? `  - Período ${p.period}: pedir ${p.quantity} unidades (cubre solo ese período)`
-        : `  - Período ${p.period}: pedir ${p.quantity} unidades (cubre períodos ${p.period} al ${p.coversThroughPeriod})`,
+        ? `  - Período ${p.period}: pedir ${p.quantity} unidades`
+        : `  - Período ${p.period}: pedir ${p.quantity} unidades (cubre ${p.period}–${p.coversThroughPeriod})`,
     )
     .join('\n');
 
@@ -20,93 +38,60 @@ const buildSystemPrompt = (solverInput: SolverInput, solverOutput: SolverOutput)
     solverOutput.mathematicalArtifacts.costBreakdown;
 
   return [
-    'Sos un asistente especializado en modelos determinísticos avanzados de inventario EOQ dinámico,',
-    'desarrollado para estudiantes de Investigación Operativa de la UTN FRRe.',
-    'Tu único dominio es el EOQ dinámico con y sin costo de reposición, usando el algoritmo Wagner-Whitin.',
+    'Sos un asistente de EOQ dinámico (Wagner-Whitin) para estudiantes de IO de la UTN FRRe.',
     '',
     '=== PROBLEMA EN CURSO ===',
-    `Períodos: ${solverInput.periodDemands?.length ?? 1}`,
-    `Demandas por período: [${demands}]`,
-    `Costo de almacenamiento por unidad/período: ${solverInput.holdingCost}`,
-    hasSetup
-      ? `Costo fijo de pedido/preparación: ${setupCost}`
-      : 'Sin costo fijo de pedido (reposición lote a lote)',
+    `Períodos: ${solverInput.periodDemands?.length ?? 1} · Demandas: [${demands}]`,
+    `Costo de almacenamiento: ${solverInput.holdingCost}`,
+    hasSetup ? `Costo fijo de pedido: ${setupCost}` : 'Sin costo fijo (lote a lote)',
     '',
-    '=== PLAN ÓPTIMO (Wagner-Whitin) ===',
+    '=== PLAN ÓPTIMO ===',
     plan,
     '',
     '=== COSTOS ===',
-    `Costo fijo total: ${setupOrOrderingCost}`,
-    `Costo de almacenamiento total: ${holdingCost}`,
-    `Costo relevante total: ${totalRelevantCost}`,
+    `Fijo: ${setupOrOrderingCost} · Almacenamiento: ${holdingCost} · Relevante total: ${totalRelevantCost}`,
     '',
-    '=== REGLAS DE CONTENIDO ===',
-    '- Solo respondés preguntas relacionadas al EOQ dinámico y a este problema específico.',
-    '- Los números del plan ya fueron calculados por el algoritmo. No los modificás, solo los explicás.',
-    '- Si el estudiante pregunta algo fuera del dominio (geografía, historia, código, etc.),',
-    '  respondés en una línea que no es tu área y redirigís al problema en curso.',
+    '=== REGLAS ===',
+    '- No recalculés ni inventés números: los del plan son la única verdad.',
+    '- Si piden cambiar parámetros o un escenario distinto, explicá cualitativamente qué ocurriría',
+    '  y terminá el mensaje con el token: [NUEVO_PROBLEMA]',
+    '- Fuera del dominio EOQ: respondé en una línea que no es tu área y volvé al problema.',
     '',
-    '=== PROHIBICIÓN ABSOLUTA DE CALCULAR ===',
-    '- NUNCA calculés un plan de reposición nuevo, aunque el estudiante te lo pida explícitamente.',
-    '- NUNCA inventés períodos, cantidades, costos ni resultados que no estén en el plan calculado arriba.',
-    '- Si el estudiante quiere resolver un problema con datos diferentes (distinto costo, distintas demandas, etc.),',
-    '  respondés de forma amigable explicando cualitativamente qué cambiaría, por ejemplo:',
-    '  "¡Buena pregunta! Con un costo de almacenamiento menor, conviene hacer lotes más grandes porque',
-    '   almacenar es más barato. Para ver el plan exacto con esos datos, podés iniciar un nuevo cálculo."',
-    '  Y al final del mensaje agregás exactamente el texto: [NUEVO_PROBLEMA]',
-    '- Agregás [NUEVO_PROBLEMA] SOLO cuando el estudiante quiera cambiar algún parámetro (costo, demandas, períodos)',
-    '  o pida calcular un escenario diferente. NO lo agregués en preguntas de explicación del resultado actual.',
-    '- Podés explicar qué pasaría cualitativamente pero nunca con números concretos inventados.',
-    '- Si alguien pregunta algo fuera del dominio EOQ, respondés amigable:',
-    '  "Eso está fuera de mi área, pero con gusto te ayudo con cualquier duda sobre el plan de pedidos que calculamos."',
+    FORMAT_RULES,
     '',
-    '=== REGLAS DE FORMATO (MUY IMPORTANTE) ===',
-    '- Respondés en español, de forma clara y directa para un estudiante universitario.',
-    '- Máximo 4 oraciones o puntos por respuesta. Sé conciso.',
-    '- Usá saltos de línea para separar ideas distintas.',
-    '- Si listás más de un punto, usá "•" al inicio de cada uno.',
-    '- No repetís información que ya está en la tabla de resultados.',
-    '- No usás markdown (* ** # etc), solo texto plano con saltos de línea y "•".',
-    '- Nunca escribas fórmulas matemáticas largas. Si necesitás una, usala en una línea corta.',
-    '',
-    '=== TEORÍA DE REFERENCIA (consultala para responder preguntas conceptuales) ===',
-    'Si el estudiante hace una pregunta teórica (definiciones, supuestos, comparaciones,',
-    'algoritmos, MRP, Wagner-Whitin, Silver-Meal, etc.), basate en este material.',
-    'No inventés datos fuera de esta base.',
-    '',
-    '=== CITA DE LA BIBLIOGRAFÍA ===',
-    'Cuando uses la teoría de referencia para responder, citá la fuente al final del mensaje',
-    'en una línea separada, precedida por "— ", con exactamente este texto:',
-    `— ${EOQ_BIBLIOGRAPHY_CITATION}`,
-    'No agregues la cita en respuestas que solo explican el plan ya calculado o que son',
-    'redirecciones fuera de dominio: solo cuando la respuesta apoya un concepto teórico.',
-    EOQ_THEORY_REFERENCE,
+    THEORY_AND_CITATION,
   ].join('\n');
 };
 
 const GENERIC_SYSTEM_PROMPT = [
-  'Sos un asistente educativo especializado en modelos de inventario EOQ dinámico,',
-  'para estudiantes de Investigación Operativa de la UTN FRRe.',
-  'Respondés preguntas conceptuales sobre EOQ, Wagner-Whitin y gestión de inventarios.',
-  'No resolvés problemas con números concretos ni inventás datos; solo explicás conceptos.',
-  'Si te preguntan algo fuera del dominio inventario/EOQ, decís que solo podés ayudar con eso.',
+  'Sos un asistente educativo de EOQ dinámico (Wagner-Whitin) para estudiantes de IO de la UTN FRRe.',
+  'Respondés preguntas conceptuales; no resolvés problemas con números concretos.',
+  'Fuera del dominio inventario/EOQ: aclará que solo podés ayudar con eso.',
   '',
-  'Formato:',
-  '- Máximo 5 líneas o puntos.',
-  '- Usá saltos de línea y "•" para listas.',
-  '- Sin markdown (* ** #), solo texto plano.',
-  '- Tono claro y pedagógico, como un docente que explica en clase.',
+  FORMAT_RULES,
   '',
-  'Base teórica que tenés que usar como referencia (no inventes contenido fuera de acá):',
-  '',
-  'Cita obligatoria: cuando respondas una pregunta conceptual apoyándote en esta base,',
-  'terminá el mensaje en una línea separada con exactamente este texto:',
-  `— ${EOQ_BIBLIOGRAPHY_CITATION}`,
-  'No agregues la cita si la pregunta queda fuera del dominio EOQ y solo redirigís al estudiante.',
-  EOQ_THEORY_REFERENCE,
+  THEORY_AND_CITATION,
 ].join('\n');
 
-const groqPost = async (messages: Array<{ role: string; content: string }>): Promise<string> => {
+export class RateLimitedError extends Error {
+  constructor(public readonly retryAfterSeconds: number) {
+    super(`Groq rate limit (retry after ${retryAfterSeconds}s)`);
+    this.name = 'RateLimitedError';
+  }
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const parseRetryAfter = (header: string | null): number => {
+  if (!header) return 5;
+  const seconds = Number.parseFloat(header);
+  if (Number.isFinite(seconds) && seconds > 0) return Math.min(seconds, 30);
+  return 5;
+};
+
+const groqPostOnce = async (
+  messages: Array<{ role: string; content: string }>,
+): Promise<string> => {
   const config = loadLlmInterpreterConfig();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), config.timeoutMs);
@@ -117,11 +102,26 @@ const groqPost = async (messages: Array<{ role: string; content: string }>): Pro
       body: JSON.stringify({ model: config.model, temperature: 0.5, max_tokens: 512, messages }),
       signal: controller.signal,
     });
+    if (response.status === 429) {
+      throw new RateLimitedError(parseRetryAfter(response.headers.get('retry-after')));
+    }
     if (!response.ok) throw new Error(`Groq error ${response.status}`);
     const data = (await response.json()) as { choices: Array<{ message: { content: string } }> };
     return data.choices[0].message.content.trim();
   } finally {
     clearTimeout(timeout);
+  }
+};
+
+const groqPost = async (messages: Array<{ role: string; content: string }>): Promise<string> => {
+  try {
+    return await groqPostOnce(messages);
+  } catch (error) {
+    if (error instanceof RateLimitedError) {
+      await sleep(error.retryAfterSeconds * 1000);
+      return groqPostOnce(messages);
+    }
+    throw error;
   }
 };
 

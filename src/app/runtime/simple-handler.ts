@@ -2,7 +2,10 @@ import { z } from 'zod';
 import { SolverInput, SolverOutput } from '../../contracts/eoq';
 import { solveExactWithSetup, solveExactNoSetup } from '../../domain/solver/exact-solvers';
 import { getSession, saveSession, ConversationMessage } from '../../session/simple-session';
-import { callGroqFollowUp, callGroqGeneric } from '../../infrastructure/llm/groq-followup';
+import { callGroqFollowUp, callGroqGeneric, RateLimitedError } from '../../infrastructure/llm/groq-followup';
+
+const RATE_LIMIT_FRIENDLY_MESSAGE =
+  'Estoy un poco saturado por el límite de la API gratuita de Groq. Esperá unos segundos y volvé a preguntar.';
 
 // ─── Request schemas ──────────────────────────────────────────────────────────
 
@@ -109,8 +112,15 @@ export const handleSimpleChatRequest = async (body: unknown): Promise<SimpleChat
 
   // ── Generic (preguntas sin sesión activa) ─────────────────────────────────
   if (req.type === 'generic') {
-    const message = await callGroqGeneric(req.userText);
-    return { type: 'generic', message };
+    try {
+      const message = await callGroqGeneric(req.userText);
+      return { type: 'generic', message };
+    } catch (error) {
+      if (error instanceof RateLimitedError) {
+        return { type: 'generic', message: RATE_LIMIT_FRIENDLY_MESSAGE };
+      }
+      throw error;
+    }
   }
 
   // ── Solve ─────────────────────────────────────────────────────────────────
@@ -147,12 +157,28 @@ export const handleSimpleChatRequest = async (body: unknown): Promise<SimpleChat
     };
   }
 
-  const { message, suggestsNewProblem } = await callGroqFollowUp({
-    history:      session.history,
-    userText:     req.userText,
-    solverInput:  session.solverInput,
-    solverOutput: session.solverOutput,
-  });
+  let message: string;
+  let suggestsNewProblem = false;
+  try {
+    const result = await callGroqFollowUp({
+      history:      session.history,
+      userText:     req.userText,
+      solverInput:  session.solverInput,
+      solverOutput: session.solverOutput,
+    });
+    message = result.message;
+    suggestsNewProblem = result.suggestsNewProblem;
+  } catch (error) {
+    if (error instanceof RateLimitedError) {
+      return {
+        type: 'followup',
+        sessionId: req.sessionId,
+        message: RATE_LIMIT_FRIENDLY_MESSAGE,
+        suggestsNewProblem: false,
+      };
+    }
+    throw error;
+  }
 
   session.history.push(
     { role: 'user',      content: req.userText },
