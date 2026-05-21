@@ -11,7 +11,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="es">
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+        {/*
+          interactive-widget=resizes-visual  →  Chrome Android NO redimensiona el
+          layout viewport cuando aparece el teclado; solo cambia el visual viewport.
+          Esto elimina el layout shift en Android. iOS Safari lo ignora (ya se comporta así).
+        */}
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, interactive-widget=resizes-visual" />
         <meta name="theme-color" content="#1a5fbc" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />

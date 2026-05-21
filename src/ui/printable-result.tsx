@@ -2,231 +2,249 @@
 
 import { SolvePayload } from './types';
 
-// ─── Estilos de impresión ─────────────────────────────────────────────────────
+// ─── Estilos @media print ─────────────────────────────────────────────────────
+// Se inyectan en la página principal. Al presionar "Exportar PDF" se llama
+// directamente a window.print() — sin abrir ventanas nuevas.
+//
+// Estrategia CSS:
+//   1. body > *:not(#simplex-print-content) → oculta el shell y todo lo demás.
+//   2. #simplex-print-content → position: static para entrar al flujo normal
+//      del documento y permitir paginación correcta en todos los browsers.
+//   3. @page margin: 0 + padding en el contenido → control total del diseño.
 export const PRINT_STYLES = `
   @media print {
-    @page { size: A4 portrait; margin: 20mm 22mm; }
+    @page { size: A4 portrait; margin: 0; }
 
-    /* Ocultar todo */
-    body * { visibility: hidden !important; }
+    /* Ocultar todo excepto el contenido del informe */
+    body > *:not(#simplex-print-content) { display: none !important; }
 
-    /* Mostrar solo el contenido imprimible */
-    #simplex-print-content,
-    #simplex-print-content * { visibility: visible !important; }
-
+    /* Sacar del off-screen y colocar en flujo normal (pagina correctamente) */
     #simplex-print-content {
       display: block !important;
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%;
-      padding: 0;
-      font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
-      color: #1a1a2e;
+      position: static !important;
+      width: 100% !important;
+      padding: 14mm 18mm !important;
+      background: #fff !important;
+      font-family: Arial, Helvetica, sans-serif !important;
+      color: #0f172a !important;
+      box-sizing: border-box !important;
     }
 
-    /* Evitar cortes dentro de secciones */
     .print-section { page-break-inside: avoid; }
     table { page-break-inside: avoid; }
-    tr { page-break-inside: avoid; }
+    tr    { page-break-inside: avoid; }
   }
 `;
 
-// ─── Helpers de estilo ────────────────────────────────────────────────────────
-const ACCENT       = '#1a5fbc';
-const ACCENT_LIGHT = '#e8f0fe';
-const ACCENT_MID   = '#bfdbfe';
-const TEXT_DARK    = '#0f172a';
-const TEXT_MID     = '#334155';
-const TEXT_LIGHT   = '#64748b';
-const BORDER       = '#e2e8f0';
-const ROW_ALT      = '#f8fafc';
+// ─── Paleta ───────────────────────────────────────────────────────────────────
+const A = '#1a5fbc';         // accent blue
+const AL = '#e8f0fe';        // accent light
+const AM = '#bfdbfe';        // accent mid
+const TD_ = '#0f172a';       // text dark
+const TM  = '#334155';       // text mid
+const TL  = '#64748b';       // text light
+const BR  = '#e2e8f0';       // border
+const RA  = '#f8fafc';       // row alt
 
 // ─── Componente imprimible ────────────────────────────────────────────────────
+// Renderizado via createPortal a <body> (fuera del shell position:fixed).
+// En pantalla vive off-screen (position:fixed top:-9999px).
+// Al imprimir, @media print lo reposiciona en flujo normal y oculta el shell.
 export const PrintableResult = ({ solvePayload }: { solvePayload: SolvePayload }) => {
   const { solverInput, solverOutput } = solvePayload;
   const { replenishmentPlan }         = solverOutput.policy;
-  const { costBreakdown, endingInventoryByPeriod, demandSchedule } = solverOutput.mathematicalArtifacts;
+  const { costBreakdown, endingInventoryByPeriod, demandSchedule } =
+    solverOutput.mathematicalArtifacts;
 
   const hasSetup  = solverInput.branch === 'with_setup';
-  const setupCost: number | null = (hasSetup && solverInput.variant === 'scalar' && 'setupCost' in solverInput)
-    ? (solverInput as { setupCost: number }).setupCost
-    : null;
+  const setupCost: number | null =
+    hasSetup && solverInput.variant === 'scalar' && 'setupCost' in solverInput
+      ? (solverInput as { setupCost: number }).setupCost
+      : null;
 
   const date = new Date().toLocaleDateString('es-AR', {
     year: 'numeric', month: 'long', day: 'numeric',
   });
 
-  // ── Tabla header cell
-  const TH = (first = false, last = false): React.CSSProperties => ({
-    padding: '9px 12px',
-    textAlign: 'center',
-    background: ACCENT,
-    color: '#fff',
-    fontWeight: 700,
-    fontSize: '10.5px',
-    letterSpacing: '0.04em',
-    textTransform: 'uppercase',
-    border: `1px solid ${ACCENT}`,
-    borderRadius: first ? '6px 0 0 0' : last ? '0 6px 0 0' : undefined,
-  });
+  const orders = replenishmentPlan.filter(p => p.quantity > 0).length;
 
-  // ── Tabla data cell
-  const TD = (alt: boolean, align: React.CSSProperties['textAlign'] = 'center', bold = false): React.CSSProperties => ({
-    padding: '7px 12px',
-    textAlign: align,
-    fontSize: '11.5px',
-    border: `1px solid ${BORDER}`,
-    background: alt ? ROW_ALT : '#fff',
-    fontWeight: bold ? 700 : 400,
-    color: TEXT_DARK,
+  // ── Estilos de celda reutilizables ──────────────────────────────────────────
+  const th: React.CSSProperties = {
+    padding: '6px 10px', background: A, color: '#fff',
+    fontWeight: 700, fontSize: '9.5pt', textTransform: 'uppercase',
+    letterSpacing: '0.03em', border: `1px solid ${A}`, textAlign: 'center',
+  };
+  const td = (alt: boolean, align: React.CSSProperties['textAlign'] = 'center', bold = false): React.CSSProperties => ({
+    padding: '5px 10px', textAlign: align, fontSize: '10pt',
+    border: `1px solid ${BR}`, background: alt ? RA : '#fff',
+    fontWeight: bold ? 700 : 400, color: TD_,
   });
-
-  // ── Sección título
-  const SH: React.CSSProperties = {
-    fontSize: '9px',
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    letterSpacing: '0.12em',
-    color: ACCENT,
-    borderBottom: `2px solid ${ACCENT}`,
-    paddingBottom: '5px',
-    marginBottom: '12px',
-    marginTop: '0',
+  const sh: React.CSSProperties = {
+    fontSize: '7.5pt', fontWeight: 700, textTransform: 'uppercase',
+    letterSpacing: '0.12em', color: A, borderBottom: `2px solid ${A}`,
+    paddingBottom: '4px', marginBottom: '10px', marginTop: '0',
   };
 
-  const ordersCount = replenishmentPlan.filter(p => p.quantity > 0).length;
-
   return (
-    <div id="simplex-print-content" style={{ display: 'none' }}>
+    <div
+      id="simplex-print-content"
+      style={{
+        // Off-screen en pantalla; @media print lo reposiciona en flujo normal.
+        // position: fixed (no absolute) para no afectar el scroll/layout del body.
+        position: 'fixed', top: '-9999px', left: '-9999px',
+        width: '170mm',   // ancho imprimible A4 con márgenes 20mm cada lado
+        background: '#fff',
+        fontFamily: 'Arial, Helvetica, sans-serif',
+        color: TD_,
+        fontSize: '10pt',
+        lineHeight: 1.4,
+      }}
+    >
 
-      {/* ── Encabezado ──────────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'stretch',
-        borderBottom: `3px solid ${ACCENT}`,
-        paddingBottom: '14px', marginBottom: '28px',
-      }}>
-        {/* Bloque izquierdo */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-          <div style={{ fontSize: '20px', fontWeight: 800, color: ACCENT, letterSpacing: '-0.02em' }}>
-            Informe de Resolución
-          </div>
-          <div style={{ fontSize: '13px', fontWeight: 500, color: TEXT_MID }}>
-            Modelo EOQ Dinámico · Algoritmo Wagner-Whitin
-          </div>
-          <div style={{ fontSize: '10.5px', color: TEXT_LIGHT, marginTop: '2px' }}>
-            Investigación Operativa · UTN FRRe · 2026
-          </div>
-        </div>
+      {/* ══ ENCABEZADO ════════════════════════════════════════════════════════ */}
+      <table style={{ width: '100%', borderCollapse: 'collapse',
+                      borderBottom: `3px solid ${A}`, paddingBottom: '12px',
+                      marginBottom: '20px' }}>
+        <tbody><tr>
 
-        {/* Bloque derecho */}
-        <div style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
-          justifyContent: 'space-between',
-        }}>
-          <div style={{
-            background: ACCENT_LIGHT,
-            border: `1px solid ${ACCENT_MID}`,
-            borderRadius: '6px',
-            padding: '5px 12px',
-            fontSize: '10px', fontWeight: 600, color: ACCENT,
-            letterSpacing: '0.03em',
-          }}>
-            GENERADO EL {date.toUpperCase()}
-          </div>
-          <div style={{ fontSize: '10px', color: TEXT_LIGHT }}>
-            Simplex · Asistente EOQ Dinámico
-          </div>
-        </div>
-      </div>
+          {/* Logo + título */}
+          <td style={{ verticalAlign: 'middle', paddingBottom: '12px' }}>
+            <table style={{ borderCollapse: 'collapse' }}>
+              <tbody><tr>
+                {/* Logo en esquina superior izquierda */}
+                <td style={{ verticalAlign: 'middle', paddingRight: '12px' }}>
+                  {/* src usa path relativo — handlePrint agrega <base href> */}
+                  <img
+                    src="/logo.png"
+                    alt="Simplex"
+                    style={{ width: '44px', height: '44px', objectFit: 'contain', display: 'block' }}
+                  />
+                </td>
+                <td style={{ verticalAlign: 'middle' }}>
+                  <div style={{ fontSize: '17pt', fontWeight: 800, color: A, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+                    Informe de Resolución
+                  </div>
+                  <div style={{ fontSize: '10pt', fontWeight: 500, color: TM, marginTop: '3px' }}>
+                    Modelo EOQ Dinámico · Algoritmo Wagner-Whitin
+                  </div>
+                  <div style={{ fontSize: '8.5pt', color: TL, marginTop: '2px' }}>
+                    Investigación Operativa · UTN FRRe · 2026
+                  </div>
+                </td>
+              </tr></tbody>
+            </table>
+          </td>
 
-      {/* ── Resumen ejecutivo (KPIs) ─────────────────────────────────────────── */}
-      <div className="print-section" style={{ marginBottom: '26px' }}>
-        <div style={{
-          display: 'flex', gap: '12px',
-          borderLeft: `4px solid ${ACCENT}`,
-          paddingLeft: '14px',
-          alignItems: 'center',
-        }}>
-          {[
-            { label: 'Períodos analizados', value: `${demandSchedule.length}` },
-            { label: 'Órdenes de compra',   value: `${ordersCount}` },
-            { label: hasSetup ? 'Costo fijo total' : 'Costo de almacenamiento', value: `${costBreakdown.holdingCost}` },
-            { label: 'Costo relevante total', value: `${costBreakdown.totalRelevantCost}`, highlight: true },
-          ].map(({ label, value, highlight }) => (
-            <div key={label} style={{
-              flex: 1, padding: '10px 14px', borderRadius: '8px',
-              background: highlight ? ACCENT_LIGHT : '#fff',
-              border: `1.5px solid ${highlight ? ACCENT_MID : BORDER}`,
-              textAlign: 'center',
+          {/* Fecha (esquina superior derecha) */}
+          <td style={{ textAlign: 'right', verticalAlign: 'top', paddingBottom: '12px', paddingTop: '4px' }}>
+            <div style={{
+              display: 'inline-block', background: AL, border: `1px solid ${AM}`,
+              borderRadius: '5px', padding: '4px 10px',
+              fontSize: '8pt', fontWeight: 600, color: A, letterSpacing: '0.03em',
             }}>
-              <div style={{
-                fontSize: '16px', fontWeight: 800,
-                color: highlight ? ACCENT : TEXT_DARK,
-                lineHeight: 1.2,
-              }}>{value}</div>
-              <div style={{
-                fontSize: '9px', fontWeight: 600, textTransform: 'uppercase',
-                letterSpacing: '0.07em', color: TEXT_LIGHT, marginTop: '4px',
-              }}>{label}</div>
+              {date.toUpperCase()}
             </div>
-          ))}
-        </div>
+            <div style={{ fontSize: '8pt', color: TL, marginTop: '5px' }}>
+              Simplex · Asistente EOQ Dinámico
+            </div>
+          </td>
+
+        </tr></tbody>
+      </table>
+
+      {/* ══ KPIs ══════════════════════════════════════════════════════════════ */}
+      <div className="print-section" style={{ marginBottom: '18px', borderLeft: `4px solid ${A}`, paddingLeft: '12px' }}>
+        <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '6px 0', tableLayout: 'fixed' }}>
+          <tbody><tr>
+            {[
+              { label: 'Períodos',         value: `${demandSchedule.length}` },
+              { label: 'Órdenes',          value: `${orders}` },
+              { label: hasSetup ? 'Costo fijo' : 'Costo almac.', value: `${costBreakdown.holdingCost}` },
+              { label: 'Costo total ★',    value: `${costBreakdown.totalRelevantCost}`, hi: true },
+            ].map(({ label, value, hi }) => (
+              <td key={label} style={{
+                padding: '8px 10px', borderRadius: '6px', textAlign: 'center', width: '25%',
+                background: hi ? AL : '#fff',
+                border: `1.5px solid ${hi ? AM : BR}`,
+              }}>
+                <div style={{ fontSize: '15pt', fontWeight: 800, color: hi ? A : TD_, lineHeight: 1.1 }}>
+                  {value}
+                </div>
+                <div style={{ fontSize: '7pt', fontWeight: 600, textTransform: 'uppercase',
+                              letterSpacing: '0.06em', color: TL, marginTop: '3px' }}>
+                  {label}
+                </div>
+              </td>
+            ))}
+          </tr></tbody>
+        </table>
       </div>
 
-      {/* ── Parámetros ──────────────────────────────────────────────────────── */}
-      <div className="print-section" style={{ marginBottom: '24px' }}>
-        <p style={SH}>Parámetros del problema</p>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px', borderRadius: '6px', overflow: 'hidden' }}>
+      {/* ══ PARÁMETROS ════════════════════════════════════════════════════════ */}
+      <div className="print-section" style={{ marginBottom: '18px' }}>
+        <p style={sh}>Parámetros del problema</p>
+        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+          <colgroup>
+            <col style={{ width: '42%' }} />
+            <col style={{ width: '58%' }} />
+          </colgroup>
           <tbody>
             {[
-              ['Número de períodos',          `${demandSchedule.length}`],
-              ['Demandas por período',         `[${demandSchedule.join(', ')}]`],
-              ['Costo de almacenamiento (h)',  `${solverInput.holdingCost} por unidad / período`],
+              ['Número de períodos',         `${demandSchedule.length}`],
+              ['Demandas por período',        `[${demandSchedule.join(', ')}]`],
+              ['Costo de almacenamiento (h)', `${solverInput.holdingCost} por unidad / período`],
               ...(setupCost !== null ? [['Costo fijo de pedido (K)', `${setupCost}`]] : []),
               ['Modelo aplicado', hasSetup
                 ? 'EOQ dinámico con costo fijo de pedido'
-                : 'EOQ dinámico sin costo fijo (reposición lote a lote)'],
-            ].map(([label, value], i) => (
-              <tr key={label}>
-                <td style={{ ...TD(i % 2 === 1, 'left'), fontWeight: 600, width: '40%', color: TEXT_MID }}>
-                  {label}
-                </td>
-                <td style={TD(i % 2 === 1, 'left')}>{value}</td>
+                : 'EOQ dinámico sin costo fijo (lote a lote)'],
+            ].map(([lbl, val], i) => (
+              <tr key={lbl}>
+                <td style={{ ...td(i % 2 === 1, 'left'), fontWeight: 600, color: TM }}>{lbl}</td>
+                <td style={td(i % 2 === 1, 'left')}>{val}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      {/* ── Plan de reposición ───────────────────────────────────────────────── */}
-      <div className="print-section" style={{ marginBottom: '24px' }}>
-        <p style={SH}>Plan de reposición óptimo</p>
-        <table style={{ width: '100%', borderCollapse: 'collapse', borderRadius: '6px', overflow: 'hidden' }}>
+      {/* ══ PLAN DE REPOSICIÓN ════════════════════════════════════════════════ */}
+      <div className="print-section" style={{ marginBottom: '18px' }}>
+        <p style={sh}>Plan de reposición óptimo</p>
+        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+          <colgroup>
+            <col style={{ width: '13%' }} />
+            <col style={{ width: '15%' }} />
+            <col style={{ width: '24%' }} />
+            <col style={{ width: '24%' }} />
+            <col style={{ width: '14%' }} />
+          </colgroup>
           <thead>
             <tr>
-              {['Período', 'Demanda', 'Cantidad a pedir', 'Cubre hasta', 'Inv. final'].map((h, i, arr) => (
-                <th key={h} style={TH(i === 0, i === arr.length - 1)}>{h}</th>
+              {['Período','Demanda','Cant. a pedir','Cubre hasta','Inv. final'].map((h, i, a) => (
+                <th key={h} style={{ ...th,
+                  borderRadius: i === 0 ? '4px 0 0 0' : i === a.length-1 ? '0 4px 0 0' : undefined,
+                  wordBreak: 'break-word' as const,
+                }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {replenishmentPlan.map((p, i) => {
-              const inv = endingInventoryByPeriod[p.period - 1] ?? 0;
-              const alt = i % 2 === 1;
-              const isOrder = p.quantity > 0;
+              const inv    = endingInventoryByPeriod[p.period - 1] ?? 0;
+              const alt    = i % 2 === 1;
+              const isOrd  = p.quantity > 0;
               return (
-                <tr key={p.period}>
-                  <td style={TD(alt)}>{p.period}</td>
-                  <td style={TD(alt)}>{demandSchedule[p.period - 1]}</td>
-                  <td style={{
-                    ...TD(alt, 'center', isOrder),
-                    color: isOrder ? ACCENT : TEXT_LIGHT,
-                    background: isOrder ? (alt ? '#eef4ff' : '#f5f8ff') : (alt ? ROW_ALT : '#fff'),
-                  }}>
-                    {isOrder ? p.quantity : '—'}
+                <tr key={p.period} style={{
+                  background: isOrd ? (alt ? '#eef4ff' : '#f5f8ff') : (alt ? RA : '#fff'),
+                  borderLeft: isOrd ? `3px solid ${A}` : `3px solid transparent`,
+                }}>
+                  <td style={{ ...td(false, 'center'), background: 'inherit' }}>{p.period}</td>
+                  <td style={{ ...td(false, 'center'), background: 'inherit' }}>{demandSchedule[p.period-1]}</td>
+                  <td style={{ ...td(false, 'center', isOrd), color: isOrd ? A : TL, background: 'inherit' }}>
+                    {isOrd ? p.quantity : '—'}
                   </td>
-                  <td style={TD(alt)}>{p.coversThroughPeriod ?? '—'}</td>
-                  <td style={TD(alt)}>{inv}</td>
+                  <td style={{ ...td(false, 'center'), background: 'inherit' }}>{p.coversThroughPeriod ?? '—'}</td>
+                  <td style={{ ...td(false, 'center'), background: 'inherit' }}>{inv}</td>
                 </tr>
               );
             })}
@@ -234,39 +252,34 @@ export const PrintableResult = ({ solvePayload }: { solvePayload: SolvePayload }
         </table>
       </div>
 
-      {/* ── Análisis de costos ───────────────────────────────────────────────── */}
-      <div className="print-section" style={{ marginBottom: '24px' }}>
-        <p style={SH}>Análisis de costos</p>
-        <table style={{ width: '50%', borderCollapse: 'collapse', fontSize: '11.5px' }}>
+      {/* ══ COSTOS ════════════════════════════════════════════════════════════ */}
+      <div className="print-section" style={{ marginBottom: '18px' }}>
+        <p style={sh}>Análisis de costos</p>
+        <table style={{ width: '60%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+          <colgroup>
+            <col style={{ width: '70%' }} />
+            <col style={{ width: '30%' }} />
+          </colgroup>
           <tbody>
             <tr>
-              <td style={{ ...TD(false, 'left'), fontWeight: 600, color: TEXT_MID }}>
+              <td style={{ ...td(false,'left'), fontWeight: 600, color: TM }}>
                 {hasSetup ? 'Costo fijo total (pedidos)' : 'Costo de compra total'}
               </td>
-              <td style={{ ...TD(false, 'right') }}>{costBreakdown.setupOrOrderingCost}</td>
+              <td style={td(false,'right')}>{costBreakdown.setupOrOrderingCost}</td>
             </tr>
             <tr>
-              <td style={{ ...TD(true, 'left'), fontWeight: 600, color: TEXT_MID }}>
+              <td style={{ ...td(true,'left'), fontWeight: 600, color: TM }}>
                 Costo de almacenamiento total
               </td>
-              <td style={{ ...TD(true, 'right') }}>{costBreakdown.holdingCost}</td>
+              <td style={td(true,'right')}>{costBreakdown.holdingCost}</td>
             </tr>
             <tr>
-              <td style={{
-                ...TD(false, 'left'),
-                fontWeight: 700, color: ACCENT,
-                background: ACCENT_LIGHT,
-                border: `1.5px solid ${ACCENT_MID}`,
-              }}>
+              <td style={{ ...td(false,'left'), fontWeight: 700, color: A,
+                            background: AL, border: `1.5px solid ${AM}` }}>
                 Costo relevante total ★
               </td>
-              <td style={{
-                ...TD(false, 'right'),
-                fontWeight: 800, color: ACCENT,
-                background: ACCENT_LIGHT,
-                border: `1.5px solid ${ACCENT_MID}`,
-                fontSize: '13px',
-              }}>
+              <td style={{ ...td(false,'right'), fontWeight: 800, color: A,
+                            background: AL, border: `1.5px solid ${AM}`, fontSize: '12pt' }}>
                 {costBreakdown.totalRelevantCost}
               </td>
             </tr>
@@ -274,41 +287,35 @@ export const PrintableResult = ({ solvePayload }: { solvePayload: SolvePayload }
         </table>
       </div>
 
-      {/* ── Conclusión ──────────────────────────────────────────────────────── */}
+      {/* ══ CONCLUSIÓN ════════════════════════════════════════════════════════ */}
       <div className="print-section" style={{
-        marginBottom: '28px',
-        padding: '14px 18px',
-        borderLeft: `4px solid ${ACCENT}`,
-        background: ACCENT_LIGHT,
-        borderRadius: '0 8px 8px 0',
-        fontSize: '11.5px',
-        lineHeight: 1.7,
-        color: TEXT_DARK,
+        marginBottom: '20px', padding: '10px 14px',
+        borderLeft: `4px solid ${A}`, background: AL,
+        borderRadius: '0 6px 6px 0', fontSize: '10pt', lineHeight: 1.6, color: TD_,
       }}>
-        <strong style={{ color: ACCENT, display: 'block', marginBottom: '4px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+        <strong style={{ color: A, display: 'block', marginBottom: '3px',
+                         fontSize: '7.5pt', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
           Conclusión
         </strong>
         El plan óptimo obtenido mediante el algoritmo Wagner-Whitin establece{' '}
-        <strong>{ordersCount} orden{ordersCount !== 1 ? 'es' : ''} de compra</strong>{' '}
+        <strong>{orders} orden{orders !== 1 ? 'es' : ''} de compra</strong>{' '}
         a lo largo de los {demandSchedule.length} períodos analizados, con un{' '}
         <strong>costo relevante total de {costBreakdown.totalRelevantCost}</strong>.
         Este resultado minimiza la suma de costos de {hasSetup ? 'pedido y ' : ''}almacenamiento
         mediante programación dinámica, garantizando la política de reposición de menor costo posible.
       </div>
 
-      {/* ── Footer ──────────────────────────────────────────────────────────── */}
-      <div style={{
-        borderTop: `1px solid ${BORDER}`,
-        paddingTop: '10px',
-        marginTop: '10px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        fontSize: '9px',
-        color: TEXT_LIGHT,
-      }}>
-        <span>Simplex · Asistente EOQ Dinámico · UTN FRRe</span>
-        <span>Investigación Operativa 2026 — Documento generado automáticamente</span>
-      </div>
+      {/* ══ FOOTER ════════════════════════════════════════════════════════════ */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', borderTop: `1px solid ${BR}` }}>
+        <tbody><tr>
+          <td style={{ paddingTop: '8px', fontSize: '7.5pt', color: TL, textAlign: 'left' }}>
+            Simplex · Asistente EOQ Dinámico · UTN FRRe
+          </td>
+          <td style={{ paddingTop: '8px', fontSize: '7.5pt', color: TL, textAlign: 'right' }}>
+            Investigación Operativa 2026 — Generado automáticamente
+          </td>
+        </tr></tbody>
+      </table>
 
     </div>
   );
