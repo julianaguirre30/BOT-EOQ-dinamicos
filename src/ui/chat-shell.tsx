@@ -974,7 +974,26 @@ export const ChatShell = () => {
             margin: '0 auto',
             padding: isMobile ? '0 10px calc(14px + env(safe-area-inset-bottom, 0px))' : '0 20px 20px',
           }}>
-            {/* Botón exportar PDF — fila propia encima del composer */}
+            {/* Botón flotante: Resolver problema (en modo chatting) o PDF (completado) */}
+            {step === 'chatting' && (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0 8px', animation: 'fadeSlideUp 0.3s ease' }}>
+                <button
+                  onClick={startFreshProblem}
+                  style={{
+                    padding: '11px 28px', borderRadius: '999px',
+                    background: 'linear-gradient(135deg, #1a5fbc, #00bcd4)',
+                    color: '#fff', fontWeight: 700, fontSize: '0.9rem',
+                    border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                    boxShadow: '0 4px 20px rgba(26,95,188,0.3)',
+                    transition: 'transform 0.18s ease, box-shadow 0.18s ease',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'; }}
+                >
+                  Resolver problema →
+                </button>
+              </div>
+            )}
             {step === 'completed' && lastSolvePayload && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
                 <button
@@ -1009,6 +1028,7 @@ export const ChatShell = () => {
             <ChatComposer
               draft={draft}
               sessionId={sessionId}
+              step={step}
               pendingResetProblem={pendingResetProblem}
               error={error}
               isSubmitting={isSubmitting}

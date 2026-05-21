@@ -46,11 +46,12 @@ const GLOBAL_STYLES = `
 `;
 
 export const ChatComposer = ({
-  draft, sessionId, pendingResetProblem, error,
+  draft, sessionId, step, pendingResetProblem, error,
   isSubmitting, disabled, isDark, onChange, onSubmit, onResetProblem,
 }: {
   draft: string;
   sessionId?: string;
+  step?: string;
   pendingResetProblem: boolean;
   error: string | null;
   isSubmitting: boolean;
@@ -128,7 +129,7 @@ export const ChatComposer = ({
               onInput={handleInput}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
-              placeholder={disabled ? 'Iniciá una nueva conversación para comenzar.' : 'Escribí tu problema de inventario…'}
+              placeholder={disabled ? 'Iniciá una nueva conversación para comenzar.' : step === 'chatting' ? 'Ingresa lo que quieras que te explique...' : 'Escribí tu problema de inventario…'}
               disabled={disabled || isSubmitting}
               rows={1}
               style={{
