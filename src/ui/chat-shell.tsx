@@ -438,7 +438,7 @@ export const ChatShell = () => {
   };
 
   const parseNumberList = (text: string) =>
-    text.split(/[,\s]+/).map(v => v.trim()).filter(Boolean).map(Number);
+    text.trim().split(/\s+/).filter(Boolean).map(Number);
 
   // ── Envío directo (desde ejemplos del sidebar) ────────────────────────────────
   const sendDirect = async (text: string) => {
@@ -521,14 +521,18 @@ export const ChatShell = () => {
         }
         setProblemData(prev => ({ ...prev, periodCount }));
         setStep('demands');
-        appendAssistantMessage(`Perfecto. Ingresá la demanda de cada uno de los ${periodCount} períodos, separadas por comas o espacios.`);
+        appendAssistantMessage(`Perfecto. Ingresá la demanda de cada uno de los ${periodCount} períodos, separadas sólo por espacios y usando punto para los decimales.`);
         return;
       }
 
       if (step === 'demands') {
+        if (/,/.test(userText)) {
+          appendAssistantMessage(`Usá sólo espacios para separar las demandas y punto para los decimales, por ejemplo: 10.5 20 30.25`);
+          return;
+        }
         const values = parseNumberList(userText);
         if (!values.every(v => Number.isFinite(v) && v >= 0) || values.length !== problemData.periodCount) {
-          appendAssistantMessage(`Necesito ${problemData.periodCount} números válidos. Ingresá las demandas separadas por comas o espacios.`);
+          appendAssistantMessage(`Necesito ${problemData.periodCount} números válidos. Ingresá las demandas separadas sólo por espacios y usa punto para los decimales.`);
           return;
         }
         setProblemData(prev => ({ ...prev, demands: values }));
@@ -551,7 +555,11 @@ export const ChatShell = () => {
       }
 
       if (step === 'orderCost') {
-        const orderCost = Number(userText.replace(/[^0-9.,-]/g, '').replace(',', '.'));
+        if (/,/.test(userText)) {
+          appendAssistantMessage('Usá punto para los decimales, no coma. Ingresá un valor numérico válido para el costo de pedido.');
+          return;
+        }
+        const orderCost = Number(userText.replace(/[^0-9.\-]/g, ''));
         if (!Number.isFinite(orderCost) || orderCost < 0) {
           appendAssistantMessage('Ingresá un valor numérico válido para el costo de pedido.');
           return;
@@ -563,6 +571,10 @@ export const ChatShell = () => {
       }
 
       if (step === 'holdingCost') {
+        if (/,/.test(userText)) {
+          appendAssistantMessage('Usá punto para los decimales, no coma. Ingresá un valor numérico positivo para el costo de almacenamiento, por ejemplo: 1.5.');
+          return;
+        }
         const holdingCost = Number(userText.replace(/[^0-9.]/g, ''));
         if (!Number.isFinite(holdingCost) || holdingCost <= 0) {
           appendAssistantMessage('Ingresá un valor numérico positivo para el costo de almacenamiento (usá punto como separador decimal, ej: 1.5).');
