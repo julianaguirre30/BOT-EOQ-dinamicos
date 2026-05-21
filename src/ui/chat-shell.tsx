@@ -187,18 +187,19 @@ const Sidebar = ({
             <div style={{ fontSize: '0.69rem', color: palette.textFaint, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '8px 4px 4px' }}>
               Recientes
             </div>
-            {conversations.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => onSelect(c.id)}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
-                  padding: '9px 10px', borderRadius: '8px', border: 'none',
-                  background: c.id === activeId ? palette.sidebarActive : 'transparent',
-                  color: c.id === activeId ? palette.blue : palette.textMuted,
-                  cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem',
-                  textAlign: 'left', marginBottom: '2px', transition: 'background 0.15s', overflow: 'hidden',
-                }}
+            <div style={{ maxHeight: '105px', overflowY: 'auto', paddingRight: '4px', scrollbarWidth: 'thin', scrollbarColor: `${palette.textFaint} transparent` }}>
+              {conversations.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => onSelect(c.id)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
+                    padding: '9px 10px', borderRadius: '8px', border: 'none',
+                    background: c.id === activeId ? palette.sidebarActive : 'transparent',
+                    color: c.id === activeId ? palette.blue : palette.textMuted,
+                    cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem',
+                    textAlign: 'left', marginBottom: '2px', transition: 'background 0.15s', overflow: 'hidden',
+                  }}
                 onMouseEnter={(e) => { if (c.id !== activeId) (e.currentTarget as HTMLButtonElement).style.background = palette.sidebarHover; }}
                 onMouseLeave={(e) => { if (c.id !== activeId) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
               >
@@ -206,6 +207,7 @@ const Sidebar = ({
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.label}</span>
               </button>
             ))}
+            </div>
           </>
         )}
 
@@ -327,10 +329,10 @@ export const ChatShell = () => {
     try { localStorage.setItem('simplex-dark', String(isDark)); } catch { /* ignore */ }
   }, [isDark]);
 
-  // ── localStorage: guardar cuando cambia el historial (máx 3) ───────────────
+  // ── localStorage: guardar cuando cambia el historial (máx 12) ───────────────
   useEffect(() => {
     try {
-      localStorage.setItem('simplex-conversations', JSON.stringify(conversations.slice(0, 3)));
+      localStorage.setItem('simplex-conversations', JSON.stringify(conversations.slice(0, 12)));
     } catch { /* ignore */ }
   }, [conversations]);
 
@@ -396,7 +398,7 @@ export const ChatShell = () => {
     setActiveConvId(convId);
     setConversations(prev => {
       if (prev.find(x => x.id === convId)) return prev;
-      return [{ id: convId, label: 'Nuevo problema', ts: Date.now() }, ...prev].slice(0, 3);
+      return [{ id: convId, label: 'Nuevo problema', ts: Date.now() }, ...prev].slice(0, 12);
     });
     setEntries(prev => [...prev, { id: `user-${crypto.randomUUID()}`, role: 'user' as const, text: 'Resolver problema' }]);
     setStep('periodCount');
@@ -409,7 +411,7 @@ export const ChatShell = () => {
   const startFreshProblem = () => {
     const newId = crypto.randomUUID();
     setActiveConvId(newId);
-    setConversations(prev => [{ id: newId, label: 'Nuevo problema', ts: Date.now() }, ...prev].slice(0, 3));
+    setConversations(prev => [{ id: newId, label: 'Nuevo problema', ts: Date.now() }, ...prev].slice(0, 12));
     setDraft('');
     setError(null);
     setIsSubmitting(false);
@@ -439,6 +441,11 @@ export const ChatShell = () => {
 
   const parseNumberList = (text: string) =>
     text.trim().split(/\s+/).filter(Boolean).map(Number);
+
+  const updateConversationLabel = (label: string) => {
+    if (!activeConvId) return;
+    setConversations(prev => prev.map(c => c.id === activeConvId ? { ...c, label } : c));
+  };
 
   // ── Envío directo (desde ejemplos del sidebar) ────────────────────────────────
   const sendDirect = async (text: string) => {
@@ -520,6 +527,7 @@ export const ChatShell = () => {
           return;
         }
         setProblemData(prev => ({ ...prev, periodCount }));
+        updateConversationLabel(`Plan para ${periodCount} períodos`);
         setStep('demands');
         appendAssistantMessage(`Perfecto. Ingresá la demanda de cada uno de los ${periodCount} períodos, separadas sólo por espacios y usando punto para los decimales.`);
         return;
