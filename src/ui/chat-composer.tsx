@@ -36,6 +36,26 @@ const DARK = {
 
 const getP = (dark?: boolean) => dark ? DARK : LIGHT;
 
+const getPlaceholder = (step?: string, disabled?: boolean): string => {
+  if (disabled) return 'Iniciá una nueva conversación para comenzar.';
+  switch (step) {
+    case 'chatting':
+      return 'Ingresa lo que quieras que te explique...';
+    case 'periodCount':
+      return 'Ingresa la cantidad de períodos a analizar...';
+    case 'demands':
+      return 'Ingresa las demandas de cada periodo...';
+    case 'orderCost':
+      return 'Ingresa el costo de pedido fijo...';
+    case 'holdingCost':
+      return 'Ingresa el costo de almacenamiento...';
+    case 'completed':
+      return 'Ingresa lo que quieras que te explique sobre el plan...';
+    default:
+      return 'Escribí tu problema de inventario...';
+  }
+};
+
 const GLOBAL_STYLES = `
   @keyframes spin       { to { transform: rotate(360deg); } }
   @keyframes gradBorder { 0%,100% { opacity:.6; } 50% { opacity:1; } }
@@ -129,7 +149,7 @@ export const ChatComposer = ({
               onInput={handleInput}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
-              placeholder={disabled ? 'Iniciá una nueva conversación para comenzar.' : step === 'chatting' ? 'Ingresa lo que quieras que te explique...' : 'Escribí tu problema de inventario…'}
+              placeholder={getPlaceholder(step, disabled)}
               disabled={disabled || isSubmitting}
               rows={1}
               style={{
