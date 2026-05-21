@@ -7,7 +7,11 @@ const FORMAT_RULES = [
   'Formato:',
   '- Español, claro y pedagógico, máximo 4–5 líneas.',
   '- Saltos de línea para separar ideas; "•" para listas.',
-  '- Sin markdown (* ** #) ni fórmulas largas.',
+  '- Para resaltar un término clave usá **negrita** (doble asterisco). No uses cursiva, encabezados (#), ni código (`).',
+  '- Para subíndices matemáticos usá guion bajo: D_i, x_{i+1}, h_{i−1}. No escribas "subíndice i".',
+  '- Nunca uses identificadores internos, etiquetas estructurales ni referencias del libro:',
+  '  prohibido escribir "[A]", "[B.1]", "B.3", "sección 13.4.2", "§13.4", "capítulo 13", etc.',
+  '  Explicá los conceptos directamente, sin nombrar la organización interna.',
 ].join('\n');
 
 const THEORY_AND_CITATION = [
