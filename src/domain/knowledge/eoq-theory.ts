@@ -1,10 +1,18 @@
 /**
  * Base de conocimiento teórico sobre modelos dinámicos de EOQ.
- * Fuente: Taha, "Investigación de Operaciones", 9a ed., Capítulo 13 — sección 13.4.
+ * Fuente: Taha, Hamdy A. "Investigación de Operaciones", 9a edición,
+ * Capítulo 13 — sección 13.4 ("Modelos dinámicos de cantidad de pedido económica").
  *
  * Este texto se inyecta en los system prompts del LLM para que pueda
  * responder preguntas teóricas/conceptuales sin inventar contenido.
  */
+
+/**
+ * Cita corta de la bibliografía que el LLM debe agregar al final de cada
+ * respuesta teórica. Se mantiene como una sola línea de texto plano.
+ */
+export const EOQ_BIBLIOGRAPHY_CITATION =
+  'Fuente: Taha, Hamdy A. — Investigación de Operaciones, 9a ed., cap. 13 §13.4.';
 export const EOQ_THEORY_REFERENCE = `
 === BASE TEÓRICA — EOQ DINÁMICO (Taha §13.4) ===
 

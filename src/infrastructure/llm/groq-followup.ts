@@ -1,7 +1,7 @@
 import { SolverInput, SolverOutput } from '../../contracts/eoq';
 import { ConversationMessage } from '../../session/simple-session';
 import { loadLlmInterpreterConfig } from '../../config/llm-config';
-import { EOQ_THEORY_REFERENCE } from '../../domain/knowledge/eoq-theory';
+import { EOQ_THEORY_REFERENCE, EOQ_BIBLIOGRAPHY_CITATION } from '../../domain/knowledge/eoq-theory';
 
 const buildSystemPrompt = (solverInput: SolverInput, solverOutput: SolverOutput): string => {
   const demands = solverInput.periodDemands?.join(', ') ?? solverInput.demandRate;
@@ -72,7 +72,14 @@ const buildSystemPrompt = (solverInput: SolverInput, solverOutput: SolverOutput)
     '=== TEORÍA DE REFERENCIA (consultala para responder preguntas conceptuales) ===',
     'Si el estudiante hace una pregunta teórica (definiciones, supuestos, comparaciones,',
     'algoritmos, MRP, Wagner-Whitin, Silver-Meal, etc.), basate en este material.',
-    'No inventés datos fuera de esta base ni cites páginas/secciones del libro.',
+    'No inventés datos fuera de esta base.',
+    '',
+    '=== CITA DE LA BIBLIOGRAFÍA ===',
+    'Cuando uses la teoría de referencia para responder, citá la fuente al final del mensaje',
+    'en una línea separada, precedida por "— ", con exactamente este texto:',
+    `— ${EOQ_BIBLIOGRAPHY_CITATION}`,
+    'No agregues la cita en respuestas que solo explican el plan ya calculado o que son',
+    'redirecciones fuera de dominio: solo cuando la respuesta apoya un concepto teórico.',
     EOQ_THEORY_REFERENCE,
   ].join('\n');
 };
@@ -90,8 +97,12 @@ const GENERIC_SYSTEM_PROMPT = [
   '- Sin markdown (* ** #), solo texto plano.',
   '- Tono claro y pedagógico, como un docente que explica en clase.',
   '',
-  'Base teórica que tenés que usar como referencia (no inventes contenido fuera de acá,',
-  'no cites páginas ni secciones del libro al estudiante):',
+  'Base teórica que tenés que usar como referencia (no inventes contenido fuera de acá):',
+  '',
+  'Cita obligatoria: cuando respondas una pregunta conceptual apoyándote en esta base,',
+  'terminá el mensaje en una línea separada con exactamente este texto:',
+  `— ${EOQ_BIBLIOGRAPHY_CITATION}`,
+  'No agregues la cita si la pregunta queda fuera del dominio EOQ y solo redirigís al estudiante.',
   EOQ_THEORY_REFERENCE,
 ].join('\n');
 
