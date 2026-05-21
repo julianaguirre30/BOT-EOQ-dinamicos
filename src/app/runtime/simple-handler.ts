@@ -1,8 +1,34 @@
 import { z } from 'zod';
 import { SolverInput, SolverOutput } from '../../contracts/eoq';
 import { solveExactWithSetup, solveExactNoSetup } from '../../domain/solver/exact-solvers';
+import { evaluateCustomPlan, formatPlanEvaluation } from '../../domain/solver/plan-evaluator';
 import { getSession, saveSession, ConversationMessage } from '../../session/simple-session';
 import { callGroqFollowUp, callGroqGeneric, RateLimitedError } from '../../infrastructure/llm/groq-followup';
+
+// ─── "What-if" marker handling ────────────────────────────────────────────────
+// El LLM emite [WHATIF: q1, q2, q3, ...] al final del mensaje cuando el
+// estudiante propone un plan alternativo. El backend lo evalúa
+// determinísticamente y appendea la comparación real.
+// Tolera variantes: WHAT_IF, WHAT-IF, asteriscos, espacios, etc.
+const WHATIF_MARKER_REGEX = /\**\[\s*WHAT[_\- ]?IF\s*:\s*([0-9.,\s-]+?)\s*\]\**/i;
+
+const processWhatIfMarker = (
+  rawMessage: string,
+  solverInput: SolverInput,
+  solverOutput: SolverOutput,
+): string => {
+  const match = rawMessage.match(WHATIF_MARKER_REGEX);
+  if (!match) return rawMessage;
+
+  const orders = match[1]
+    .split(',')
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isFinite(n));
+
+  const cleaned = rawMessage.replace(WHATIF_MARKER_REGEX, '').trimEnd();
+  const evaluation = evaluateCustomPlan(solverInput, solverOutput, orders);
+  return cleaned + formatPlanEvaluation(evaluation);
+};
 
 const RATE_LIMIT_FRIENDLY_MESSAGE =
   'Estoy un poco saturado por el límite de la API gratuita de Groq. Esperá unos segundos y volvé a preguntar.';
@@ -179,6 +205,8 @@ export const handleSimpleChatRequest = async (body: unknown): Promise<SimpleChat
     }
     throw error;
   }
+
+  message = processWhatIfMarker(message, session.solverInput, session.solverOutput);
 
   session.history.push(
     { role: 'user',      content: req.userText },

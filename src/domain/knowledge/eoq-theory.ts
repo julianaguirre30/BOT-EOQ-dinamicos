@@ -44,7 +44,17 @@ Supuestos:
 Implicancia "sin faltantes": capacidad acumulada en 1..i mayor o igual a la
 demanda acumulada 1..i.
 
-Método: se formula como modelo de TRANSPORTE.
+**Caso simple (un solo nivel de producción, costo unitario constante):**
+si NO hay costo de preparación y el costo de retención h es positivo, el
+óptimo es **lote a lote**: pedir en cada periodo exactamente su demanda
+D_i. Cualquier inventario almacenado solo genera costo de retención sin
+ahorrar setups (no hay setups). Concentrar todo al inicio es peor, no
+mejor: paga retención por toda la demanda futura. Costo relevante total =
+0 si h = 0, o suma de holding de los periodos que quedan con stock si
+agrupás (cero si vas lote a lote).
+
+**Caso general (múltiples niveles de producción con costos distintos):**
+se formula como modelo de TRANSPORTE.
 - k·n orígenes y n destinos (k = niveles de producción por periodo).
 - Costo unitario en cada celda = producción en el origen + retención hasta el
   destino.
