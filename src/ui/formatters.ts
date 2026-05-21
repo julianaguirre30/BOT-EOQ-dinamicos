@@ -11,7 +11,6 @@ export const VALUE_ALIASES = {
   setupCost: ['setupCost', 'orderingCost', 'orderCost', 'S', 'K'],
   unitCost: ['unitCost', 'purchaseCost', 'productionCost', 'c'],
   unitCostByPeriod: ['unitCostByPeriod', 'purchaseCostByPeriod', 'productionCostByPeriod', 'purchaseCost', 'productionCost'],
-  leadTime: ['leadTime', 'lead_time'],
 } as const;
 
 /**
@@ -72,8 +71,6 @@ export const humanizeValidationReason = (value: string): string => {
       return 'Los costos unitarios por período no pueden ser negativos.';
     case 'invalid_unit_cost_by_period_length':
       return 'La cantidad de costos unitarios por período no coincide con la demanda.';
-    case 'invalid_lead_time':
-      return 'El lead time no puede ser negativo.';
     case 'incompatible_units_or_time_basis':
       return 'Hay unidades o bases de tiempo incompatibles.';
     case 'conflicting_setup_and_no_setup_cost_structure':
@@ -204,7 +201,6 @@ export const buildDetectedData = (response: PublicResponseEnvelope): DetectedDat
   } else {
     addDatum('Costo unitario', normalized?.unitCost ?? getFirstAliasValue(extracted, VALUE_ALIASES.unitCost));
   }
-  addDatum('Lead time', normalized?.leadTime ?? getFirstAliasValue(extracted, VALUE_ALIASES.leadTime));
 
   return items;
 };

@@ -85,7 +85,7 @@ describe('EOQ validation and routing', () => {
     expect(result.trace.why).toContain('silver_meal_only_optional_pedagogical_comparison');
   });
 
-  it('solves an in-domain no-setup interpretation and applies the visible zero-lead-time default', () => {
+  it('solves an in-domain no-setup interpretation without lead time in the canonical model', () => {
     const interpretation = buildInterpretation('explicit-without-setup', {
       branchCandidate: 'no_setup',
       extractedValues: {
@@ -98,7 +98,6 @@ describe('EOQ validation and routing', () => {
 
     expect(result.decision).toBe('solve');
     expect(result.solvable).toBe(true);
-    expect(result.validation.defaultsApplied).toContain('lead_time=0');
     expect(result.trace.chosenBranch).toBe('no_setup');
     expect(result.trace.solverFamily).toBe('exact_no_setup');
   });

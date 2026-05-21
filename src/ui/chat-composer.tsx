@@ -1,117 +1,187 @@
 'use client';
 
-import { FormEvent } from 'react';
+import { FormEvent, KeyboardEvent, useRef, useState } from 'react';
 
-const composerStyles = {
-  inputWrap: {
-    position: 'sticky' as const,
-    bottom: 0,
-    zIndex: 10,
-    borderTop: '1px solid rgba(96, 165, 250, 0.18)',
-    padding: '16px 18px 18px',
-    background: 'linear-gradient(180deg, rgba(5, 8, 22, 0.82), rgba(5, 8, 22, 0.96) 24%, rgba(10, 16, 31, 0.98) 100%)',
-    backdropFilter: 'blur(12px)',
-  },
-  textarea: {
-    width: '100%',
-    minHeight: '76px',
-    maxHeight: '180px',
-    resize: 'vertical' as const,
-    borderRadius: '20px',
-    border: '1px solid rgba(129, 140, 248, 0.28)',
-    background: 'rgba(15, 23, 42, 0.95)',
-    color: '#f8fafc',
-    padding: '18px',
-    fontSize: '16px',
-    outline: 'none',
-  },
-  button: {
-    borderRadius: '999px',
-    border: 'none',
-    background: 'linear-gradient(135deg, #4f46e5, #2563eb)',
-    color: 'white',
-    padding: '14px 22px',
-    fontWeight: 700,
-    cursor: 'pointer',
-    boxShadow: '0 10px 30px rgba(37, 99, 235, 0.35)',
-  },
-  muted: {
-    color: '#cbd5e1',
-  },
-  label: {
-    display: 'block' as const,
-    marginBottom: '10px',
-    fontWeight: 700,
-  },
-  controls: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: '12px',
-    marginTop: '16px',
-    flexWrap: 'wrap' as const,
-  },
-  statusRow: {
-    display: 'grid',
-    gap: '8px',
-  },
-  buttonRow: {
-    display: 'flex',
-    gap: '12px',
-    flexWrap: 'wrap' as const,
-  },
-  errorText: {
-    color: '#fca5a5',
-    marginTop: '12px',
-  },
+const LIGHT = {
+  surface:   'rgba(255,255,255,0.65)',
+  surfaceFocus: 'rgba(255,255,255,0.82)',
+  border:    'rgba(26,95,188,0.18)',
+  borderFocus: 'rgba(26,95,188,0.35)',
+  grad:      'linear-gradient(135deg, #1a5fbc, #00bcd4)',
+  text:      '#0b1829',
+  textFaint: '#8aaac4',
+  disabledBg:'rgba(26,95,188,0.08)',
+  error:     '#dc2626',
+  errorBg:   'rgba(220,38,38,0.07)',
+  errorBorder:'rgba(220,38,38,0.2)',
+  shadow:    '0 4px 20px rgba(26,95,188,0.08), 0 2px 6px rgba(0,0,0,0.04)',
+  shadowFocus:'0 8px 32px rgba(26,95,188,0.15), 0 2px 8px rgba(0,0,0,0.06)',
 } as const;
 
+const DARK = {
+  surface:   'rgba(12,22,42,0.85)',
+  surfaceFocus: 'rgba(15,28,52,0.95)',
+  border:    'rgba(26,95,188,0.25)',
+  borderFocus: 'rgba(26,95,188,0.5)',
+  grad:      'linear-gradient(135deg, #1a5fbc, #00bcd4)',
+  text:      '#ddeeff',
+  textFaint: '#3d5f7a',
+  disabledBg:'rgba(26,95,188,0.08)',
+  error:     '#f87171',
+  errorBg:   'rgba(248,113,113,0.07)',
+  errorBorder:'rgba(248,113,113,0.25)',
+  shadow:    '0 4px 20px rgba(0,0,0,0.3)',
+  shadowFocus:'0 8px 32px rgba(26,95,188,0.2)',
+} as const;
+
+const getP = (dark?: boolean) => dark ? DARK : LIGHT;
+
+const GLOBAL_STYLES = `
+  @keyframes spin       { to { transform: rotate(360deg); } }
+  @keyframes gradBorder { 0%,100% { opacity:.6; } 50% { opacity:1; } }
+  @keyframes sendPulse  { 0% { box-shadow: 0 0 0 0 rgba(26,95,188,0.5); }
+                          70% { box-shadow: 0 0 0 8px rgba(26,95,188,0); }
+                          100% { box-shadow: 0 0 0 0 rgba(26,95,188,0); } }
+  .send-btn-active:hover { transform: scale(1.08); }
+`;
+
 export const ChatComposer = ({
-  draft,
-  sessionId,
-  pendingResetProblem,
-  error,
-  isSubmitting,
-  onChange,
-  onSubmit,
-  onResetProblem,
+  draft, sessionId, pendingResetProblem, error,
+  isSubmitting, disabled, isDark, onChange, onSubmit, onResetProblem,
 }: {
   draft: string;
   sessionId?: string;
   pendingResetProblem: boolean;
   error: string | null;
   isSubmitting: boolean;
-  onChange: (value: string) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onResetProblem: () => void;
-}) => (
-  <form style={composerStyles.inputWrap} onSubmit={onSubmit} data-testid="chat-composer">
-    <label htmlFor="chat-input" style={composerStyles.label}>
-      Escribí tu siguiente mensaje
-    </label>
-    <textarea
-      id="chat-input"
-      style={composerStyles.textarea}
-      value={draft}
-      onChange={(event) => onChange(event.target.value)}
-      placeholder="Ejemplo: tengo demanda por períodos [40,20,40], setup 50 y holding 1..."
-    />
-    <div style={composerStyles.controls}>
-      <div style={composerStyles.statusRow}>
-        <span style={composerStyles.muted}>{sessionId ? `Sesión activa: ${sessionId}` : 'Todavía no arrancaste una sesión.'}</span>
-        {pendingResetProblem ? <span style={composerStyles.muted}>El próximo envío va a arrancar un problema nuevo.</span> : null}
-      </div>
-      <div style={composerStyles.buttonRow}>
-        {sessionId ? (
-          <button type="button" style={{ ...composerStyles.button, background: 'linear-gradient(135deg, #0f766e, #2563eb)' }} onClick={onResetProblem}>
-            Nuevo problema
-          </button>
-        ) : null}
-        <button type="submit" style={composerStyles.button} disabled={isSubmitting}>
-          {isSubmitting ? 'Pensando...' : 'Enviar mensaje'}
-        </button>
-      </div>
+  disabled?: boolean;
+  isDark?: boolean;
+  onChange: (v: string) => void;
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void;
+  onResetProblem?: () => void;
+}) => {
+  const P       = getP(isDark);
+  const taRef   = useRef<HTMLTextAreaElement>(null);
+  const [focused, setFocused] = useState(false);
+  const canSend = !disabled && !isSubmitting && draft.trim().length > 0;
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      e.currentTarget.form?.requestSubmit();
+    }
+  };
+
+  const handleInput = () => {
+    const ta = taRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 160) + 'px';
+  };
+
+  return (
+    <div>
+      <style>{GLOBAL_STYLES}</style>
+
+      {error && (
+        <div style={{
+          marginBottom: '10px', padding: '10px 14px', borderRadius: '10px',
+          background: P.errorBg, border: `1px solid ${P.errorBorder}`,
+          color: P.error, fontSize: '0.87rem',
+        }}>
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={onSubmit} data-testid="chat-composer">
+        <div style={{ position: 'relative', borderRadius: '16px' }}>
+
+          {/* Glow ring */}
+          <div style={{
+            position: 'absolute', inset: '-2px', borderRadius: '18px',
+            background: 'linear-gradient(135deg, #1a5fbc, #00bcd4, #1a5fbc)',
+            backgroundSize: '200% 200%',
+            opacity: focused ? 0.6 : 0,
+            transition: 'opacity 0.3s ease',
+            animation: focused ? 'gradBorder 2s ease infinite' : 'none',
+            zIndex: 0, pointerEvents: 'none',
+          }} />
+
+          {/* Input box */}
+          <div style={{
+            position: 'relative', zIndex: 1,
+            display: 'flex', alignItems: 'flex-end', gap: '10px',
+            background: focused ? P.surfaceFocus : P.surface,
+            border: `1px solid ${focused ? P.borderFocus : P.border}`,
+            borderRadius: '16px',
+            padding: '12px 12px 12px 18px',
+            backdropFilter: 'blur(16px)',
+            boxShadow: focused ? P.shadowFocus : P.shadow,
+            transition: 'all 0.25s ease',
+          }}>
+            <textarea
+              ref={taRef}
+              id="chat-input"
+              value={draft}
+              onChange={(e) => onChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onInput={handleInput}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              placeholder={disabled ? 'Iniciá una nueva conversación para comenzar.' : 'Escribí tu problema de inventario…'}
+              disabled={disabled || isSubmitting}
+              rows={1}
+              style={{
+                flex: 1, resize: 'none', background: 'transparent',
+                border: 'none', outline: 'none',
+                color: P.text, fontSize: '0.94rem', lineHeight: 1.6,
+                fontFamily: 'inherit', padding: '4px 0',
+                minHeight: '28px', maxHeight: '160px',
+                overflowY: 'auto', scrollbarWidth: 'none',
+              }}
+            />
+
+            <button
+              type="submit"
+              disabled={!canSend}
+              aria-label="Enviar"
+              className={canSend ? 'send-btn-active' : ''}
+              style={{
+                width: '38px', height: '38px', minWidth: '38px',
+                borderRadius: '11px', border: 'none',
+                background: canSend ? P.grad : P.disabledBg,
+                color: canSend ? '#fff' : P.textFaint,
+                display: 'grid', placeItems: 'center',
+                cursor: canSend ? 'pointer' : 'default',
+                flexShrink: 0,
+                transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)',
+                boxShadow: canSend ? '0 4px 16px rgba(26,95,188,0.35)' : 'none',
+                animation: canSend ? 'sendPulse 2s ease infinite' : 'none',
+                fontSize: '17px',
+              }}
+            >
+              {isSubmitting ? (
+                <span style={{
+                  width: '14px', height: '14px', display: 'block',
+                  border: '2px solid rgba(255,255,255,0.3)',
+                  borderTopColor: '#fff', borderRadius: '50%',
+                  animation: 'spin 0.7s linear infinite',
+                }} />
+              ) : '↑'}
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', padding: '0 4px' }}>
+          <span style={{ fontSize: '0.69rem', color: P.textFaint, display: pendingResetProblem ? undefined : 'none' }}>
+            ↩ El próximo mensaje inicia un problema nuevo
+          </span>
+          <span style={{ fontSize: '0.69rem', color: P.textFaint, display: pendingResetProblem ? 'none' : undefined }} className="composer-hint">
+            Enter para enviar · Shift+Enter para salto de línea
+          </span>
+        </div>
+        <style>{`@media (max-width: 640px) { .composer-hint { display: none !important; } }`}</style>
+      </form>
     </div>
-    {error ? <p style={composerStyles.errorText}>{error}</p> : null}
-  </form>
-);
+  );
+};

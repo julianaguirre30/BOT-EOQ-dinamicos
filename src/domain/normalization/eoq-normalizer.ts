@@ -19,7 +19,6 @@ const SCALAR_ALIASES = {
     'h',
   ],
   setupCost: ['setupCost', 'setup_cost', 'orderingCost', 'orderCost', 'S', 'K'],
-  leadTime: ['leadTime', 'lead_time'],
   unitCost: ['unitCost', 'unit_cost', 'purchaseCost', 'productionCost', 'c'],
 } as const;
 
@@ -240,12 +239,6 @@ export const normalizeProblemInterpretation = (
       interpretation.extractedValues,
       SCALAR_ALIASES.holdingCost,
       'holdingCost',
-      recognizedAliases,
-    ),
-    leadTime: getFirstScalar(
-      interpretation.extractedValues,
-      SCALAR_ALIASES.leadTime,
-      'leadTime',
       recognizedAliases,
     ),
     setupCost: getFirstScalar(

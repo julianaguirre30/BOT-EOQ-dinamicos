@@ -83,7 +83,6 @@ const CanonicalInputBaseObjectSchema = z.object({
   demandRate: z.number().finite().optional(),
   periodDemands: z.array(z.number().finite()).min(1).optional(),
   holdingCost: z.number().finite().optional(),
-  leadTime: z.number().finite().optional(),
   setupCost: z.number().optional(),
   setupCostByPeriod: z.array(z.number().finite()).min(1).optional(),
   unitCost: z.number().finite().optional(),
@@ -125,7 +124,6 @@ const SolverInputSchemaBase = z.object({
   demandRate: z.number().positive().optional(),
   periodDemands: DemandScheduleSchema.optional(),
   holdingCost: z.number().positive(),
-  leadTime: z.number().min(0),
 });
 
 const ScalarWithSetupSolverInputSchema = SolverInputSchemaBase.extend({

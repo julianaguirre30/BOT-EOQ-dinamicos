@@ -11,7 +11,6 @@ describe('EOQ normalization', () => {
         annualDemand: 3600,
         holding_cost: 6,
         setup_cost: 80,
-        lead_time: 0,
       },
       units: {},
       taxonomyTags: [{ family: 'inventory', topic: 'eoq', variant: 'standard', status: 'supported', notes: [] }],
@@ -26,7 +25,6 @@ describe('EOQ normalization', () => {
       demandRate: 3600,
       holdingCost: 6,
       setupCost: 80,
-      leadTime: 0,
       branch: 'with_setup',
       variant: 'scalar',
     });
@@ -34,7 +32,6 @@ describe('EOQ normalization', () => {
       demandRate: 'annualDemand',
       holdingCost: 'holding_cost',
       setupCost: 'setup_cost',
-      leadTime: 'lead_time',
     });
   });
 

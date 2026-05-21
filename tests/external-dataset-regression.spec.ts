@@ -18,7 +18,6 @@ const interpretationsByLabel: Record<DatasetLabel, ReturnType<typeof ProblemInte
       P5: 20,
       setup_cost: 100,
       holding_cost: 2,
-      lead_time: 0,
     },
     units: { timeBasis: 'period' },
     taxonomyTags: [{ family: 'inventory', topic: 'eoq', variant: 'standard', branch: 'with_setup', status: 'supported', notes: [] }],
