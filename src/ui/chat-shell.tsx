@@ -55,10 +55,10 @@ type StoredEntry = { id: string; role: 'user' | 'assistant'; text: string };
 type ConvRecord  = { id: string; label: string; ts: number; entries?: StoredEntry[] };
 
 const QUICK_EXAMPLES = [
-  '¿Para qué sirve este modelo?',
+  '¿Qué es un modelo EOQ dinámico?',
+  '¿Qué diferencia hay entre un modelo EOQ dinamico y uno estático?',
+  '¿Qué algoritmos hay para resolver este tipo de problemas?',
   '¿Qué datos necesito para resolver un problema?',
-  '¿Cuándo conviene usar Wagner-Whitin y no EOQ clásico?',
-  '¿Qué significa el costo relevante total?',
   '¿Por qué a veces conviene pedir de más en un período?',
   '¿Qué pasa si no tengo costo fijo de pedido?',
   '¿El modelo funciona si la demanda es 0 en algún período?',
@@ -187,18 +187,19 @@ const Sidebar = ({
             <div style={{ fontSize: '0.69rem', color: palette.textFaint, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '8px 4px 4px' }}>
               Recientes
             </div>
-            {conversations.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => onSelect(c.id)}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
-                  padding: '9px 10px', borderRadius: '8px', border: 'none',
-                  background: c.id === activeId ? palette.sidebarActive : 'transparent',
-                  color: c.id === activeId ? palette.blue : palette.textMuted,
-                  cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem',
-                  textAlign: 'left', marginBottom: '2px', transition: 'background 0.15s', overflow: 'hidden',
-                }}
+            <div style={{ maxHeight: '105px', overflowY: 'auto', paddingRight: '4px', scrollbarWidth: 'thin', scrollbarColor: `${palette.textFaint} transparent` }}>
+              {conversations.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => onSelect(c.id)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
+                    padding: '9px 10px', borderRadius: '8px', border: 'none',
+                    background: c.id === activeId ? palette.sidebarActive : 'transparent',
+                    color: c.id === activeId ? palette.blue : palette.textMuted,
+                    cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem',
+                    textAlign: 'left', marginBottom: '2px', transition: 'background 0.15s', overflow: 'hidden',
+                  }}
                 onMouseEnter={(e) => { if (c.id !== activeId) (e.currentTarget as HTMLButtonElement).style.background = palette.sidebarHover; }}
                 onMouseLeave={(e) => { if (c.id !== activeId) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
               >
@@ -206,6 +207,7 @@ const Sidebar = ({
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.label}</span>
               </button>
             ))}
+            </div>
           </>
         )}
 
@@ -230,7 +232,7 @@ const Sidebar = ({
         {!effectiveCollapsed && (
           <div style={{ marginTop: conversations.length > 0 ? '16px' : '8px' }}>
             <div style={{ fontSize: '0.69rem', color: palette.textFaint, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '8px 4px 6px' }}>
-              Conceptos rápidos
+              Preguntas rápidas
             </div>
             {QUICK_EXAMPLES.map((ex, i) => (
               <button
@@ -288,7 +290,7 @@ export const ChatShell = () => {
   const [error,               setError]               = useState<string | null>(null);
   const [isSubmitting,        setIsSubmitting]        = useState(false);
   const [pendingResetProblem, setPendingResetProblem] = useState(false);
-  const [step,                setStep]                = useState<'welcome' | 'periodCount' | 'demands' | 'hasOrderCost' | 'orderCost' | 'holdingCost' | 'completed'>('welcome');
+  const [step,                setStep]                = useState<'welcome' | 'chatting' | 'periodCount' | 'demands' | 'hasOrderCost' | 'orderCost' | 'holdingCost' | 'completed'>('welcome');
   const [problemData,         setProblemData]         = useState(initialProblemData);
   const [sidebarCollapsed,    setSidebarCollapsed]    = useState(false);
   const [conversations,       setConversations]       = useState<ConvRecord[]>([]);
@@ -327,10 +329,10 @@ export const ChatShell = () => {
     try { localStorage.setItem('simplex-dark', String(isDark)); } catch { /* ignore */ }
   }, [isDark]);
 
-  // ── localStorage: guardar cuando cambia el historial (máx 3) ───────────────
+  // ── localStorage: guardar cuando cambia el historial (máx 12) ───────────────
   useEffect(() => {
     try {
-      localStorage.setItem('simplex-conversations', JSON.stringify(conversations.slice(0, 3)));
+      localStorage.setItem('simplex-conversations', JSON.stringify(conversations.slice(0, 12)));
     } catch { /* ignore */ }
   }, [conversations]);
 
@@ -396,7 +398,7 @@ export const ChatShell = () => {
     setActiveConvId(convId);
     setConversations(prev => {
       if (prev.find(x => x.id === convId)) return prev;
-      return [{ id: convId, label: 'Nuevo problema', ts: Date.now() }, ...prev].slice(0, 3);
+      return [{ id: convId, label: 'Nuevo problema', ts: Date.now() }, ...prev].slice(0, 12);
     });
     setEntries(prev => [...prev, { id: `user-${crypto.randomUUID()}`, role: 'user' as const, text: 'Resolver problema' }]);
     setStep('periodCount');
@@ -409,7 +411,7 @@ export const ChatShell = () => {
   const startFreshProblem = () => {
     const newId = crypto.randomUUID();
     setActiveConvId(newId);
-    setConversations(prev => [{ id: newId, label: 'Nuevo problema', ts: Date.now() }, ...prev].slice(0, 3));
+    setConversations(prev => [{ id: newId, label: 'Nuevo problema', ts: Date.now() }, ...prev].slice(0, 12));
     setDraft('');
     setError(null);
     setIsSubmitting(false);
@@ -438,7 +440,12 @@ export const ChatShell = () => {
   };
 
   const parseNumberList = (text: string) =>
-    text.split(/[,\s]+/).map(v => v.trim()).filter(Boolean).map(Number);
+    text.trim().split(/\s+/).filter(Boolean).map(Number);
+
+  const updateConversationLabel = (label: string) => {
+    if (!activeConvId) return;
+    setConversations(prev => prev.map(c => c.id === activeConvId ? { ...c, label } : c));
+  };
 
   // ── Envío directo (desde ejemplos del sidebar) ────────────────────────────────
   const sendDirect = async (text: string) => {
@@ -447,8 +454,20 @@ export const ChatShell = () => {
 
     setEntries(prev => [...prev, { id: `user-${crypto.randomUUID()}`, role: 'user' as const, text }]);
 
-    // Sin sesión: pregunta genérica conceptual, step se mantiene en 'welcome'
+    // Sin sesión: pregunta genérica conceptual → modo chat libre
     if (!sessionId) {
+      // Crear conversación si no hay activa y transicionar a 'chatting'
+      // para habilitar la caja de texto y permitir seguir preguntando.
+      const convId = activeConvId ?? crypto.randomUUID();
+      if (!activeConvId) {
+        setActiveConvId(convId);
+        setConversations(prev => {
+          if (prev.find(x => x.id === convId)) return prev;
+          return [{ id: convId, label: text.slice(0, 40), ts: Date.now() }, ...prev].slice(0, 3);
+        });
+      }
+      if (step === 'welcome') setStep('chatting');
+
       try {
         setIsSubmitting(true);
         const res = await fetch('/api/chat', {
@@ -513,6 +532,31 @@ export const ChatShell = () => {
 
       const normalized = userText.toLowerCase().trim();
 
+      // ── Chat libre conceptual (sin sesión de problema resuelto) ──────────
+      if (step === 'chatting') {
+        try {
+          setIsSubmitting(true);
+          const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'generic', userText }),
+          });
+          const payload = (await res.json()) as SimpleChatResponse | { error?: string };
+          if (!res.ok || !('type' in payload))
+            throw new Error('error' in payload && payload.error ? payload.error : 'No se pudo responder.');
+          setEntries(prev => [...prev, {
+            id: `assistant-${crypto.randomUUID()}`,
+            role: 'assistant' as const,
+            text: (payload as GenericResponse).message,
+          }]);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Falló la consulta.');
+        } finally {
+          setIsSubmitting(false);
+        }
+        return;
+      }
+
       if (step === 'periodCount') {
         const periodCount = Number(normalized);
         if (!Number.isInteger(periodCount) || periodCount <= 0) {
@@ -520,15 +564,20 @@ export const ChatShell = () => {
           return;
         }
         setProblemData(prev => ({ ...prev, periodCount }));
+        updateConversationLabel(`Plan para ${periodCount} períodos`);
         setStep('demands');
-        appendAssistantMessage(`Perfecto. Ingresá la demanda de cada uno de los ${periodCount} períodos, separadas por comas o espacios.`);
+        appendAssistantMessage(`Perfecto. Ingresá la demanda de cada uno de los ${periodCount} períodos, separadas sólo por espacios y usando punto para los decimales.`);
         return;
       }
 
       if (step === 'demands') {
+        if (/,/.test(userText)) {
+          appendAssistantMessage(`Usá sólo espacios para separar las demandas y punto para los decimales, por ejemplo: 10.5 20 30.25`);
+          return;
+        }
         const values = parseNumberList(userText);
         if (!values.every(v => Number.isFinite(v) && v >= 0) || values.length !== problemData.periodCount) {
-          appendAssistantMessage(`Necesito ${problemData.periodCount} números válidos. Ingresá las demandas separadas por comas o espacios.`);
+          appendAssistantMessage(`Necesito ${problemData.periodCount} números válidos. Ingresá las demandas separadas sólo por espacios y usa punto para los decimales.`);
           return;
         }
         setProblemData(prev => ({ ...prev, demands: values }));
@@ -551,7 +600,11 @@ export const ChatShell = () => {
       }
 
       if (step === 'orderCost') {
-        const orderCost = Number(userText.replace(/[^0-9.,-]/g, '').replace(',', '.'));
+        if (/,/.test(userText)) {
+          appendAssistantMessage('Usá punto para los decimales, no coma. Ingresá un valor numérico válido para el costo de pedido.');
+          return;
+        }
+        const orderCost = Number(userText.replace(/[^0-9.\-]/g, ''));
         if (!Number.isFinite(orderCost) || orderCost < 0) {
           appendAssistantMessage('Ingresá un valor numérico válido para el costo de pedido.');
           return;
@@ -563,6 +616,10 @@ export const ChatShell = () => {
       }
 
       if (step === 'holdingCost') {
+        if (/,/.test(userText)) {
+          appendAssistantMessage('Usá punto para los decimales, no coma. Ingresá un valor numérico positivo para el costo de almacenamiento, por ejemplo: 1.5.');
+          return;
+        }
         const holdingCost = Number(userText.replace(/[^0-9.]/g, ''));
         if (!Number.isFinite(holdingCost) || holdingCost <= 0) {
           appendAssistantMessage('Ingresá un valor numérico positivo para el costo de almacenamiento (usá punto como separador decimal, ej: 1.5).');

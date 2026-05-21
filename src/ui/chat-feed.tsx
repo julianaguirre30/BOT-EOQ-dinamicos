@@ -32,6 +32,25 @@ const DARK = {
 
 const getP = (dark?: boolean) => dark ? DARK : LIGHT;
 
+// ─── Inline formatter (negritas + subíndices) ────────────────────────────────
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/**
+ * Convierte el texto del asistente en HTML mínimo:
+ *   **negrita**       → <strong>negrita</strong>
+ *   x_{i+1}, D_{n}    → x<sub>i+1</sub>, D<sub>n</sub>
+ *   x_i, D_2, z_n     → x<sub>i</sub>, D<sub>2</sub>, z<sub>n</sub>
+ * Todo lo demás se conserva como texto plano (escapado).
+ */
+const formatAssistantText = (text: string): string => {
+  let html = escapeHtml(text);
+  html = html.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/_\{([^}]+)\}/g, '<sub>$1</sub>');
+  html = html.replace(/_([A-Za-z0-9])/g, '<sub>$1</sub>');
+  return html;
+};
+
 // ─── Global keyframes ─────────────────────────────────────────────────────────
 const STYLES = `
   @keyframes fadeSlideIn   { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
@@ -229,7 +248,7 @@ const AssistantMessage = ({
           fontSize: '0.94rem', lineHeight: 1.65,
           whiteSpace: 'pre-wrap',
         }}>
-          {entry.text}
+          <span dangerouslySetInnerHTML={{ __html: formatAssistantText(entry.text) }} />
           {entry.options && entry.options.length > 0 && (
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '12px' }}>
               {entry.options.map((opt: { label: string; value: string }) => (

@@ -14,9 +14,9 @@ const LlmInterpreterConfigSchema = z.object({
 export type LlmInterpreterConfig = z.infer<typeof LlmInterpreterConfigSchema>;
 
 const DEFAULT_ENV_FILE_PATH = '.env';
-const DEFAULT_MODEL = 'llama-3.3-70b-versatile';
+const DEFAULT_MODEL = 'llama-3.1-8b-instant';
 const DEFAULT_BASE_URL = 'https://api.groq.com/openai/v1';
-const DEFAULT_TIMEOUT_MS = 15_000;
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 const readOptional = (env: EnvMap, keys: string[]): string | undefined => {
   for (const key of keys) {

@@ -1,90 +1,194 @@
 import { SolverInput, SolverOutput } from '../../contracts/eoq';
 import { ConversationMessage } from '../../session/simple-session';
 import { loadLlmInterpreterConfig } from '../../config/llm-config';
+import { EOQ_THEORY_REFERENCE, EOQ_BIBLIOGRAPHY_CITATION } from '../../domain/knowledge/eoq-theory';
+
+const FORMAT_RULES = [
+  'Formato:',
+  '- Español, claro y pedagógico, máximo 4–5 líneas.',
+  '- Saltos de línea para separar ideas; "•" para listas.',
+  '- Para resaltar un término clave usá **negrita** (doble asterisco). No uses cursiva, encabezados (#), ni código (`).',
+  '- Para subíndices matemáticos usá guion bajo: D_i, x_{i+1}, h_{i−1}. No escribas "subíndice i".',
+  '- Nunca uses identificadores internos, etiquetas estructurales ni referencias del libro:',
+  '  prohibido escribir "[A]", "[B.1]", "B.3", "sección 13.4.2", "§13.4", "capítulo 13", etc.',
+  '  Explicá los conceptos directamente, sin nombrar la organización interna.',
+].join('\n');
+
+const THEORY_AND_CITATION = [
+  'Para preguntas conceptuales basate en la TEORÍA DE REFERENCIA de más abajo.',
+  'Si la respuesta apoya un concepto teórico, terminala en una línea aparte con:',
+  `— ${EOQ_BIBLIOGRAPHY_CITATION}`,
+  'No cites la fuente cuando solo expliques el plan ya calculado o redirijas fuera de dominio.',
+  '',
+  EOQ_THEORY_REFERENCE,
+].join('\n');
 
 const buildSystemPrompt = (solverInput: SolverInput, solverOutput: SolverOutput): string => {
   const demands = solverInput.periodDemands?.join(', ') ?? solverInput.demandRate;
   const hasSetup = solverInput.branch === 'with_setup';
-  const setupCost = hasSetup ? (solverInput as Extract<SolverInput, { branch: 'with_setup'; variant: 'scalar' }>).setupCost : null;
+  const setupCost = hasSetup
+    ? (solverInput as Extract<SolverInput, { branch: 'with_setup'; variant: 'scalar' }>).setupCost
+    : null;
 
   const plan = solverOutput.policy.replenishmentPlan
     .map((p) =>
       p.period === p.coversThroughPeriod
-        ? `  - Período ${p.period}: pedir ${p.quantity} unidades (cubre solo ese período)`
-        : `  - Período ${p.period}: pedir ${p.quantity} unidades (cubre períodos ${p.period} al ${p.coversThroughPeriod})`,
+        ? `  - Período ${p.period}: pedir ${p.quantity} unidades`
+        : `  - Período ${p.period}: pedir ${p.quantity} unidades (cubre ${p.period}–${p.coversThroughPeriod})`,
     )
     .join('\n');
 
   const { setupOrOrderingCost, holdingCost, totalRelevantCost } =
     solverOutput.mathematicalArtifacts.costBreakdown;
 
+  const demandList = (solverInput.periodDemands ?? []).join(', ');
+  const totalDemand = (solverInput.periodDemands ?? []).reduce((s, d) => s + d, 0);
+  const n = solverInput.periodDemands?.length ?? 1;
+  const zerosTail = Array(Math.max(0, n - 1)).fill(0).join(', ');
+  const loteALoteExample = (solverInput.periodDemands ?? []).join(', ');
+
   return [
-    'Sos un asistente especializado en modelos determinísticos avanzados de inventario EOQ dinámico,',
-    'desarrollado para estudiantes de Investigación Operativa de la UTN FRRe.',
-    'Tu único dominio es el EOQ dinámico con y sin costo de reposición, usando el algoritmo Wagner-Whitin.',
+    'Sos un asistente de EOQ dinámico (Wagner-Whitin) para estudiantes de IO de la UTN FRRe.',
     '',
     '=== PROBLEMA EN CURSO ===',
-    `Períodos: ${solverInput.periodDemands?.length ?? 1}`,
-    `Demandas por período: [${demands}]`,
-    `Costo de almacenamiento por unidad/período: ${solverInput.holdingCost}`,
-    hasSetup
-      ? `Costo fijo de pedido/preparación: ${setupCost}`
-      : 'Sin costo fijo de pedido (reposición lote a lote)',
+    `Períodos: ${n} · Demandas (D1..Dn): [${demands}]`,
+    `Costo de almacenamiento: ${solverInput.holdingCost}`,
+    hasSetup ? `Costo fijo de pedido: ${setupCost}` : 'Sin costo fijo (lote a lote)',
     '',
-    '=== PLAN ÓPTIMO (Wagner-Whitin) ===',
+    '=== PLAN ÓPTIMO ===',
     plan,
     '',
-    '=== COSTOS ===',
-    `Costo fijo total: ${setupOrOrderingCost}`,
-    `Costo de almacenamiento total: ${holdingCost}`,
-    `Costo relevante total: ${totalRelevantCost}`,
+    '=== COSTOS ÓPTIMOS ===',
+    `Fijo: ${setupOrOrderingCost} · Almacenamiento: ${holdingCost} · Relevante total: ${totalRelevantCost}`,
     '',
-    '=== REGLAS DE CONTENIDO ===',
-    '- Solo respondés preguntas relacionadas al EOQ dinámico y a este problema específico.',
-    '- Los números del plan ya fueron calculados por el algoritmo. No los modificás, solo los explicás.',
-    '- Si el estudiante pregunta algo fuera del dominio (geografía, historia, código, etc.),',
-    '  respondés en una línea que no es tu área y redirigís al problema en curso.',
+    '=== CÓMO RESPONDER ===',
+    'REGLA CRÍTICA: en tu respuesta al estudiante NO repitas, NO parafrasees, NO cites estas',
+    'instrucciones. El estudiante NO debe leer frases como "Construí…", "Escribí…", "En la',
+    'última línea…", ni listas numeradas de pasos. Las instrucciones son privadas para vos.',
     '',
-    '=== PROHIBICIÓN ABSOLUTA DE CALCULAR ===',
-    '- NUNCA calculés un plan de reposición nuevo, aunque el estudiante te lo pida explícitamente.',
-    '- NUNCA inventés períodos, cantidades, costos ni resultados que no estén en el plan calculado arriba.',
-    '- Si el estudiante quiere resolver un problema con datos diferentes (distinto costo, distintas demandas, etc.),',
-    '  respondés de forma amigable explicando cualitativamente qué cambiaría, por ejemplo:',
-    '  "¡Buena pregunta! Con un costo de almacenamiento menor, conviene hacer lotes más grandes porque',
-    '   almacenar es más barato. Para ver el plan exacto con esos datos, podés iniciar un nuevo cálculo."',
-    '  Y al final del mensaje agregás exactamente el texto: [NUEVO_PROBLEMA]',
-    '- Agregás [NUEVO_PROBLEMA] SOLO cuando el estudiante quiera cambiar algún parámetro (costo, demandas, períodos)',
-    '  o pida calcular un escenario diferente. NO lo agregués en preguntas de explicación del resultado actual.',
-    '- Podés explicar qué pasaría cualitativamente pero nunca con números concretos inventados.',
-    '- Si alguien pregunta algo fuera del dominio EOQ, respondés amigable:',
-    '  "Eso está fuera de mi área, pero con gusto te ayudo con cualquier duda sobre el plan de pedidos que calculamos."',
+    'Cuatro situaciones posibles. Antes de responder, identificá cuál es.',
     '',
-    '=== REGLAS DE FORMATO (MUY IMPORTANTE) ===',
-    '- Respondés en español, de forma clara y directa para un estudiante universitario.',
-    '- Máximo 4 oraciones o puntos por respuesta. Sé conciso.',
-    '- Usá saltos de línea para separar ideas distintas.',
-    '- Si listás más de un punto, usá "•" al inicio de cada uno.',
-    '- No repetís información que ya está en la tabla de resultados.',
-    '- No usás markdown (* ** # etc), solo texto plano con saltos de línea y "•".',
-    '- Nunca escribas fórmulas matemáticas largas. Si necesitás una, usala en una línea corta.',
+    '── CLASIFICADOR ──',
+    'A) "cuándo / cómo agrupar los pedidos" con MISMAS demandas, MISMOS costos:',
+    '   ej. "lote a lote", "todo al principio", "agrupo los dos primeros", "en el',
+    '   periodo X pido Y unidades" → CASO 2 (plan alternativo, comparar) → [WHATIF].',
+    '',
+    'B) "cambia un COSTO" (setup/preparación/pedido fijo o almacenamiento/holding):',
+    '   ej. "si el costo de pedido fuera 30000", "y si el holding fuera 5", "qué pasa',
+    '   si reduzco el costo fijo" → CASO 3 (cambio de costo, sin comparar). NO emitas',
+    '   ningún marcador. Sólo respuesta cualitativa.',
+    '',
+    'C) "cambia DEMANDA o cantidad de PERIODOS":',
+    '   ej. "si la demanda del periodo 2 fuera 100", "y si fueran 6 periodos", "qué',
+    '   pasa si elimino un periodo" → CASO 4 (rearmar el problema) → [NUEVO_PROBLEMA].',
+    '',
+    'D) Cualquier otra pregunta (teoría, qué dice el plan óptimo actual, dudas',
+    '   conceptuales) → CASO 1, sin marcador.',
+    '',
+    '(1) Teoría o el plan óptimo actual → respondé directo y conciso. Sin marcador.',
+    '',
+    '(2) Plan ALTERNATIVO (MISMAS demandas, MISMOS costos, distinta política).',
+    '    Tu respuesta debe contener SOLO dos cosas, en este orden:',
+    '      a) Una sola oración breve describiendo el escenario.',
+    `      b) Una línea con el marcador: [WHATIF: q1, q2, ..., q${n}]`,
+    `    Donde q1..q${n} son ${n} enteros (0 si no se pide nada ese periodo) elegidos de`,
+    '    modo que la suma acumulada cubra la demanda acumulada.',
+    '    NO escribas costos, comparaciones, porcentajes ni explicaciones extra: el sistema',
+    '    los calcula y los muestra después del marcador.',
+    '',
+    `    Few-shot [WHATIF] para ESTE problema (demandas = [${demandList}], total = ${totalDemand}):`,
+    '',
+    '    Estudiante: "y si hago lote a lote"',
+    '    Asistente:',
+    '        Pedimos en cada periodo exactamente su demanda.',
+    `        [WHATIF: ${loteALoteExample}]`,
+    '',
+    '    Estudiante: "qué pasa si pido todo al principio"',
+    '    Asistente:',
+    '        Concentramos toda la demanda en un solo pedido en el periodo 1.',
+    `        [WHATIF: ${totalDemand}${zerosTail ? ', ' + zerosTail : ''}]`,
+    '',
+    '    Estudiante: "qué pasa si pido en todos los periodos"',
+    '    Asistente:',
+    '        Hacemos un pedido en cada periodo cubriendo solo su demanda (equivale a lote a lote).',
+    `        [WHATIF: ${loteALoteExample}]`,
+    '',
+    '(3) Cambio de COSTOS (setup o holding) — respuesta CUALITATIVA, sin marcador:',
+    '    Los costos del problema cambiaron, así que comparar contra el óptimo actual no',
+    '    tiene sentido. Explicá CUALITATIVAMENTE qué tendería a pasar con esos nuevos',
+    '    costos (no inventes números nuevos ni recalculés el plan).',
+    '    NO emitas [WHATIF]. NO emitas [NUEVO_PROBLEMA]. SIN marcadores.',
+    '',
+    '    Few-shot CASO 3 (cambio de costo, sin marcador):',
+    '',
+    '    Estudiante: "y cómo cambia si tengo un costo de pedido de 30000"',
+    '    Asistente:',
+    '        Con un costo fijo más alto conviene agrupar más pedidos para evitar pagarlo',
+    '        muchas veces: el plan óptimo tendería a tener menos lotes y cubrir más periodos',
+    '        por lote. Si el costo bajara, pasaría lo contrario.',
+    '',
+    '    Estudiante: "y si el costo de almacenamiento fuera el doble"',
+    '    Asistente:',
+    '        Subir el holding penaliza guardar inventario: el plan óptimo tendería a hacer',
+    '        más pedidos chicos (acercándose a lote a lote) para no acumular stock.',
+    '',
+    '(4) Cambio de DEMANDA o CANTIDAD DE PERIODOS — terminá con marcador literal',
+    '    [NUEVO_PROBLEMA] (17 caracteres, exactos, no traducir; PROHIBIDO usar variantes',
+    '    como [NOVEDAD], [NUEVO], [NEW_PROBLEM], [NUEVO PROBLEMA]).',
+    '    Sugerí que el estudiante resuelva el caso nuevo en una conversación aparte.',
+    '    NO emitas [WHATIF] en este caso.',
+    '',
+    '    Few-shot CASO 4 [NUEVO_PROBLEMA]:',
+    '',
+    '    Estudiante: "qué pasa si la demanda del periodo 2 fuera 100"',
+    '    Asistente:',
+    '        Cambian los datos del problema. Para verlo con números exactos conviene',
+    '        resolverlo como un caso nuevo en una conversación aparte.',
+    '        [NUEVO_PROBLEMA]',
+    '',
+    '    Estudiante: "y si fueran 6 periodos en lugar de 4"',
+    '    Asistente:',
+    '        El horizonte cambia, así que el plan óptimo se rearma. Es mejor plantearlo',
+    '        como un problema nuevo en otra conversación.',
+    '        [NUEVO_PROBLEMA]',
+    '',
+    'Fuera del dominio EOQ: respondé en una línea que no es tu área y volvé al problema.',
+    '',
+    FORMAT_RULES,
+    '',
+    THEORY_AND_CITATION,
   ].join('\n');
 };
 
 const GENERIC_SYSTEM_PROMPT = [
-  'Sos un asistente educativo especializado en modelos de inventario EOQ dinámico,',
-  'para estudiantes de Investigación Operativa de la UTN FRRe.',
-  'Respondés preguntas conceptuales sobre EOQ, Wagner-Whitin y gestión de inventarios.',
-  'No resolvés problemas con números concretos ni inventás datos; solo explicás conceptos.',
-  'Si te preguntan algo fuera del dominio inventario/EOQ, decís que solo podés ayudar con eso.',
+  'Sos un asistente educativo de EOQ dinámico (Wagner-Whitin) para estudiantes de IO de la UTN FRRe.',
+  'Respondés preguntas conceptuales; no resolvés problemas con números concretos.',
+  'Fuera del dominio inventario/EOQ: aclará que solo podés ayudar con eso.',
   '',
-  'Formato:',
-  '- Máximo 5 líneas o puntos.',
-  '- Usá saltos de línea y "•" para listas.',
-  '- Sin markdown (* ** #), solo texto plano.',
-  '- Tono claro y pedagógico, como un docente que explica en clase.',
+  FORMAT_RULES,
+  '',
+  THEORY_AND_CITATION,
 ].join('\n');
 
-const groqPost = async (messages: Array<{ role: string; content: string }>): Promise<string> => {
+export class RateLimitedError extends Error {
+  constructor(public readonly retryAfterSeconds: number) {
+    super(`Groq rate limit (retry after ${retryAfterSeconds}s)`);
+    this.name = 'RateLimitedError';
+  }
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const parseRetryAfter = (header: string | null): number => {
+  if (!header) return 5;
+  const seconds = Number.parseFloat(header);
+  if (Number.isFinite(seconds) && seconds > 0) return Math.min(seconds, 30);
+  return 5;
+};
+
+const groqPostOnce = async (
+  messages: Array<{ role: string; content: string }>,
+): Promise<string> => {
   const config = loadLlmInterpreterConfig();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), config.timeoutMs);
@@ -95,11 +199,26 @@ const groqPost = async (messages: Array<{ role: string; content: string }>): Pro
       body: JSON.stringify({ model: config.model, temperature: 0.5, max_tokens: 512, messages }),
       signal: controller.signal,
     });
+    if (response.status === 429) {
+      throw new RateLimitedError(parseRetryAfter(response.headers.get('retry-after')));
+    }
     if (!response.ok) throw new Error(`Groq error ${response.status}`);
     const data = (await response.json()) as { choices: Array<{ message: { content: string } }> };
     return data.choices[0].message.content.trim();
   } finally {
     clearTimeout(timeout);
+  }
+};
+
+const groqPost = async (messages: Array<{ role: string; content: string }>): Promise<string> => {
+  try {
+    return await groqPostOnce(messages);
+  } catch (error) {
+    if (error instanceof RateLimitedError) {
+      await sleep(error.retryAfterSeconds * 1000);
+      return groqPostOnce(messages);
+    }
+    throw error;
   }
 };
 
@@ -125,7 +244,14 @@ export const callGroqFollowUp = async ({
     ...history,
     { role: 'user', content: userText },
   ]);
-  const suggestsNewProblem = raw.includes('[NUEVO_PROBLEMA]');
-  const message = raw.replace('[NUEVO_PROBLEMA]', '').trimEnd();
+  // Tolera variantes que suele inventar el modelo 8B: [NOVEDAD], [NUEVO],
+  // [NEW_PROBLEM], [NUEVO PROBLEMA], etc. Se considera "señal de nuevo
+  // problema" cualquiera de esas formas.
+  const NEW_PROBLEM_REGEX =
+    /\**\[\s*(?:NUEVO[_\- ]?PROBLEMA|NUEVO|NOVEDAD|NEW[_\- ]?PROBLEM|NEW)\s*\]\**/gi;
+  const suggestsNewProblem = NEW_PROBLEM_REGEX.test(raw);
+  // Reset lastIndex porque .test() lo deja avanzado en regex globales.
+  NEW_PROBLEM_REGEX.lastIndex = 0;
+  const message = raw.replace(NEW_PROBLEM_REGEX, '').trimEnd();
   return { message, suggestsNewProblem };
 };
