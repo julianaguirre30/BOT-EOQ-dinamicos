@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import { SolveResultCard } from './solve-result-card';
 import { ChatEntry } from './types';
@@ -36,13 +37,6 @@ const getP = (dark?: boolean) => dark ? DARK : LIGHT;
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-/**
- * Convierte el texto del asistente en HTML mínimo:
- *   **negrita**       → <strong>negrita</strong>
- *   x_{i+1}, D_{n}    → x<sub>i+1</sub>, D<sub>n</sub>
- *   x_i, D_2, z_n     → x<sub>i</sub>, D<sub>2</sub>, z<sub>n</sub>
- * Todo lo demás se conserva como texto plano (escapado).
- */
 const formatAssistantText = (text: string): string => {
   let html = escapeHtml(text);
   html = html.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
@@ -59,6 +53,8 @@ const STYLES = `
   @keyframes gradMove      { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
   @keyframes avatarPulse   { 0%,100%{filter:drop-shadow(0 0 4px rgba(26,95,188,0.25))} 50%{filter:drop-shadow(0 0 12px rgba(0,188,212,0.55))} }
   @keyframes chipIn        { from{opacity:0;transform:translateY(6px) scale(0.96)} to{opacity:1;transform:translateY(0) scale(1)} }
+  @keyframes cursorBlink   { 0%,100%{opacity:1} 50%{opacity:0} }
+  @keyframes optionsIn     { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
 
   .msg-bubble-bot  { transition: transform 0.2s ease, box-shadow 0.2s ease; }
   .msg-bubble-bot:hover  { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(26,95,188,0.12) !important; }
@@ -66,6 +62,16 @@ const STYLES = `
   .msg-bubble-user:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,188,212,0.25) !important; }
   .chip-suggestion { transition: background 0.18s, transform 0.18s, box-shadow 0.18s; cursor: pointer; }
   .chip-suggestion:hover { background: rgba(26,95,188,0.1) !important; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(26,95,188,0.1); }
+
+  .typewriter-cursor {
+    display: inline-block;
+    width: 2px; height: 1em;
+    background: #1a5fbc;
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    border-radius: 1px;
+    animation: cursorBlink 0.75s ease infinite;
+  }
 
   @media (max-width: 640px) {
     .bot-avatar-wrap { width: 36px !important; height: 36px !important; min-width: 36px !important; }
@@ -136,7 +142,6 @@ const WelcomeState = ({
 }) => {
   const P = getP(isDark);
 
-  // Modo compacto: solo el botón, sin robot ni texto
   if (compact) {
     return onStartProblem ? (
       <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0 8px', animation: 'fadeSlideUp 0.3s ease' }}>
@@ -159,7 +164,6 @@ const WelcomeState = ({
     ) : null;
   }
 
-  // Modo completo: robot + título + descripción + botón
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 20px 32px', textAlign: 'center', gap: '16px' }}>
       <div style={{ width: '108px', height: '108px', animation: 'fadeSlideIn 0.5s ease' }}>
@@ -223,6 +227,7 @@ const UserMessage = ({ entry, isDark }: { entry: ChatEntry; isDark?: boolean }) 
   );
 };
 
+// ─── Typewriter assistant message ─────────────────────────────────────────────
 const AssistantMessage = ({
   entry, isLast, isDark, onOptionSelect,
 }: {
@@ -232,6 +237,45 @@ const AssistantMessage = ({
   onOptionSelect?: (value: string) => void;
 }) => {
   const P = getP(isDark);
+  const fullText = entry.text;
+
+  // Solo anima mensajes nuevos (isLast al momento de montar).
+  // Mensajes históricos arrancan ya completos.
+  const shouldAnimate = useRef(!!isLast).current;
+
+  const [displayed, setDisplayed]   = useState(shouldAnimate ? 0 : fullText.length);
+  const [typingDone, setTypingDone] = useState(!shouldAnimate);
+
+  // Si el mensaje deja de ser "último" (llegó otro), terminar animación instantáneamente
+  useEffect(() => {
+    if (!isLast && !typingDone) {
+      setDisplayed(fullText.length);
+      setTypingDone(true);
+    }
+  }, [isLast, typingDone, fullText.length]);
+
+  // Tick del typewriter
+  useEffect(() => {
+    if (typingDone) return;
+    if (displayed >= fullText.length) {
+      setTypingDone(true);
+      return;
+    }
+    // Velocidad adaptativa: textos largos avanzan más chars por tick
+    const charsPerTick = fullText.length > 300 ? 4 : fullText.length > 150 ? 2 : 1;
+    const delay        = fullText.length > 300 ? 10 : 14;
+
+    const timer = setTimeout(() => {
+      setDisplayed(d => Math.min(d + charsPerTick, fullText.length));
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [displayed, typingDone, fullText]);
+
+  const visibleText  = fullText.slice(0, displayed);
+  const showCursor   = !typingDone;
+  const showOptions  = typingDone && entry.options && entry.options.length > 0;
+  const showCard     = typingDone && !!entry.solvePayload;
+
   return (
     <div
       className="msg-turn-bot"
@@ -248,10 +292,12 @@ const AssistantMessage = ({
           fontSize: '0.94rem', lineHeight: 1.65,
           whiteSpace: 'pre-wrap',
         }}>
-          <span dangerouslySetInnerHTML={{ __html: formatAssistantText(entry.text) }} />
-          {entry.options && entry.options.length > 0 && (
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '12px' }}>
-              {entry.options.map((opt: { label: string; value: string }) => (
+          <span dangerouslySetInnerHTML={{ __html: formatAssistantText(visibleText) }} />
+          {showCursor && <span className="typewriter-cursor" />}
+
+          {showOptions && (
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '12px', animation: 'optionsIn 0.3s ease both' }}>
+              {entry.options!.map((opt: { label: string; value: string }) => (
                 <button
                   key={opt.value}
                   type="button"
@@ -271,7 +317,9 @@ const AssistantMessage = ({
             </div>
           )}
         </div>
-        {entry.solvePayload && <SolveResultCard solvePayload={entry.solvePayload} isDark={isDark} />}
+
+        {/* La tarjeta de resultado aparece solo cuando terminó de escribir */}
+        {showCard && <SolveResultCard solvePayload={entry.solvePayload!} isDark={isDark} />}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { SimpleChatResponse, GenericResponse, SolveResponse, FollowUpResponse } from '../app/runtime/simple-handler';
 import { ChatFeed } from './chat-feed';
@@ -424,17 +425,62 @@ export const ChatShell = () => {
 
   const feedViewportRef     = useRef<HTMLDivElement | null>(null);
   const shouldAutoFollowRef = useRef(true);
+  const shellRef            = useRef<HTMLDivElement | null>(null);
 
-  // ── Detección de mobile + resize ────────────────────────────────────────────
+  // ── Detección de mobile — solo reacciona a cambios de ANCHO ─────────────────
+  // El teclado virtual cambia el alto pero NO el ancho.
+  // Ignorar eventos resize provocados por el teclado evita re-renders innecesarios
+  // que causaban el layout shift visible en mobile.
   useEffect(() => {
+    let lastWidth = window.innerWidth;
     const check = () => {
-      const mobile = window.innerWidth < 680;
+      const w = window.innerWidth;
+      if (w === lastWidth) return; // solo alto cambió → teclado abierto/cerrado, ignorar
+      lastWidth = w;
+      const mobile = w < 680;
       setIsMobile(mobile);
       if (!mobile) setMobileSidebarOpen(false);
     };
-    check();
+    // Evaluación inicial
+    setIsMobile(window.innerWidth < 680);
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
+  }, []);
+
+  // ── visualViewport API — ajuste directo de DOM sin re-render ─────────────────
+  // Cuando el teclado abre, el visual viewport encoge.
+  // Actualizamos top + height del contenedor directamente en el DOM
+  // para que el composer suba con el teclado sin jumpear el layout.
+  // Funciona en iOS Safari 13+ y Chrome Android 61+.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const update = () => {
+      const el = shellRef.current;
+      if (!el) return;
+      // offsetTop: cuánto desplazó Safari el visual viewport desde arriba
+      el.style.top    = `${vv.offsetTop}px`;
+      el.style.height = `${vv.height}px`;
+      el.style.bottom = 'auto'; // height controla el tamaño, no bottom
+    };
+
+    const reset = () => {
+      const el = shellRef.current;
+      if (!el) return;
+      el.style.top    = '';
+      el.style.height = '';
+      el.style.bottom = '';
+    };
+
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+      reset();
+    };
   }, []);
 
   // ── localStorage: cargar al montar ──────────────────────────────────────────
@@ -834,11 +880,25 @@ export const ChatShell = () => {
 
   const palette = getPalette(isDark);
 
+  // ── Exportar PDF — impresión inline sin abrir ventanas nuevas ────────────────
+  // El contenido imprimible (#simplex-print-content) está renderizado via portal
+  // directamente en <body>, fuera del shell position:fixed.
+  // Los @media print en PRINT_STYLES ocultan el shell y muestran solo el informe.
+  // El diálogo de impresión del browser aparece sobre la misma página actual.
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
+    <>
     <div
+      ref={shellRef}
       style={{
         position: 'fixed',
-        inset: 0,
+        // Propiedades explícitas (no shorthand `inset`) para que el efecto
+        // visualViewport pueda sobrescribir top/height/bottom individualmente
+        // sin conflicto con el shorthand.
+        top: 0, left: 0, right: 0, bottom: 0,
         display: 'flex',
         background: palette.pageBg,
         color: palette.text,
@@ -972,7 +1032,12 @@ export const ChatShell = () => {
           <div style={{
             flexShrink: 0, maxWidth: '800px', width: '100%', boxSizing: 'border-box',
             margin: '0 auto',
-            padding: isMobile ? '0 10px calc(14px + env(safe-area-inset-bottom, 0px))' : '0 20px 20px',
+            // El safe-area-inset-bottom aplica cuando el teclado está cerrado
+            // (barra home de iPhone). Cuando el teclado está abierto el contenedor
+            // ya fue ajustado por visualViewport, así que este padding no se acumula.
+            padding: isMobile
+              ? '0 10px max(14px, env(safe-area-inset-bottom, 14px))'
+              : '0 20px 20px',
           }}>
             {/* Botón flotante: Resolver problema (en modo chatting) o PDF (completado) */}
             {step === 'chatting' && (
@@ -997,7 +1062,7 @@ export const ChatShell = () => {
             {step === 'completed' && lastSolvePayload && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
                 <button
-                  onClick={() => window.print()}
+                  onClick={handlePrint}
                   title="Exportar resultado a PDF"
                   style={{
                     display: 'flex', alignItems: 'center', gap: '6px',
@@ -1041,10 +1106,17 @@ export const ChatShell = () => {
           </div>
         )}
 
-        {/* Contenido imprimible — invisible en pantalla, visible al imprimir */}
-        {lastSolvePayload && <PrintableResult solvePayload={lastSolvePayload} />}
-
       </div>
     </div>
+
+    {/* Contenido imprimible — portal directo a <body> para evitar herencia
+        del position:fixed del shell. Invisible en pantalla, visible al imprimir. */}
+    {lastSolvePayload && typeof document !== 'undefined' &&
+      createPortal(
+        <PrintableResult solvePayload={lastSolvePayload} />,
+        document.body
+      )
+    }
+    </>
   );
 };
