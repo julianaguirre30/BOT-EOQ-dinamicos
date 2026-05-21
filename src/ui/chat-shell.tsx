@@ -425,62 +425,23 @@ export const ChatShell = () => {
 
   const feedViewportRef     = useRef<HTMLDivElement | null>(null);
   const shouldAutoFollowRef = useRef(true);
-  const shellRef            = useRef<HTMLDivElement | null>(null);
 
   // ── Detección de mobile — solo reacciona a cambios de ANCHO ─────────────────
-  // El teclado virtual cambia el alto pero NO el ancho.
-  // Ignorar eventos resize provocados por el teclado evita re-renders innecesarios
-  // que causaban el layout shift visible en mobile.
+  // El teclado virtual cambia el alto pero NO el ancho → ignoramos esos eventos
+  // para no disparar re-renders innecesarios mientras el teclado está abierto.
   useEffect(() => {
     let lastWidth = window.innerWidth;
     const check = () => {
       const w = window.innerWidth;
-      if (w === lastWidth) return; // solo alto cambió → teclado abierto/cerrado, ignorar
+      if (w === lastWidth) return;
       lastWidth = w;
       const mobile = w < 680;
       setIsMobile(mobile);
       if (!mobile) setMobileSidebarOpen(false);
     };
-    // Evaluación inicial
     setIsMobile(window.innerWidth < 680);
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
-  }, []);
-
-  // ── visualViewport API — ajuste directo de DOM sin re-render ─────────────────
-  // Cuando el teclado abre, el visual viewport encoge.
-  // Actualizamos top + height del contenedor directamente en el DOM
-  // para que el composer suba con el teclado sin jumpear el layout.
-  // Funciona en iOS Safari 13+ y Chrome Android 61+.
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-
-    const update = () => {
-      const el = shellRef.current;
-      if (!el) return;
-      // offsetTop: cuánto desplazó Safari el visual viewport desde arriba
-      el.style.top    = `${vv.offsetTop}px`;
-      el.style.height = `${vv.height}px`;
-      el.style.bottom = 'auto'; // height controla el tamaño, no bottom
-    };
-
-    const reset = () => {
-      const el = shellRef.current;
-      if (!el) return;
-      el.style.top    = '';
-      el.style.height = '';
-      el.style.bottom = '';
-    };
-
-    vv.addEventListener('resize', update);
-    vv.addEventListener('scroll', update);
-
-    return () => {
-      vv.removeEventListener('resize', update);
-      vv.removeEventListener('scroll', update);
-      reset();
-    };
   }, []);
 
   // ── localStorage: cargar al montar ──────────────────────────────────────────
@@ -892,13 +853,14 @@ export const ChatShell = () => {
   return (
     <>
     <div
-      ref={shellRef}
+      className="simplex-shell"
       style={{
         position: 'fixed',
-        // Propiedades explícitas (no shorthand `inset`) para que el efecto
-        // visualViewport pueda sobrescribir top/height/bottom individualmente
-        // sin conflicto con el shorthand.
-        top: 0, left: 0, right: 0, bottom: 0,
+        top: 0, left: 0, right: 0,
+        // height se controla via CSS class (.simplex-shell) usando 100dvh.
+        // dvh = dynamic viewport height: achica automáticamente cuando el
+        // teclado virtual aparece en iOS 15.4+ y Chrome 108+.
+        // Sin JavaScript, sin conflictos con re-renders de React.
         display: 'flex',
         background: palette.pageBg,
         color: palette.text,
@@ -909,6 +871,10 @@ export const ChatShell = () => {
     >
       {/* Ambient orbs */}
       <style>{`
+        /* Shell height: 100dvh achica con teclado virtual (iOS/Android).
+           Fallback 100vh para browsers muy viejos que no soporten dvh. */
+        .simplex-shell { height: 100vh; height: 100dvh; }
+
         @keyframes orbFloat1 { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(40px,-50px) scale(1.06)} 66%{transform:translate(-25px,30px) scale(0.94)} }
         @keyframes orbFloat2 { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(-35px,40px) scale(1.08)} 66%{transform:translate(30px,-20px) scale(0.93)} }
         @keyframes orbFloat3 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(20px,35px) scale(1.04)} }
