@@ -4,6 +4,7 @@ import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { ThemeToggle } from '../src/ui/theme-toggle';
 
 // ─── Typewriter hook ──────────────────────────────────────────────────────────
 // Secuencia: tipea "EOQ Dinámico" → pausa → borra → tipea "de Inventario" → pausa → repite
@@ -182,81 +183,7 @@ export default function HomePage() {
 
       {/* Dark/Light toggle — top right */}
       <div style={{ position: 'absolute', top: '14px', right: '16px', zIndex: 10 }}>
-        {isMobile ? (
-          /* Mobile: solo botón icono circular */
-          <button
-            onClick={toggleDark}
-            title={isDark ? 'Modo claro' : 'Modo oscuro'}
-            style={{
-              width: '36px', height: '36px', borderRadius: '50%',
-              background: isDark ? '#1a2540' : '#e8f0fe',
-              border: `1.5px solid ${isDark ? 'rgba(26,95,188,0.35)' : 'rgba(26,95,188,0.2)'}`,
-              cursor: 'pointer', display: 'grid', placeItems: 'center',
-              boxShadow: isDark ? '0 2px 10px rgba(0,0,0,0.3)' : '0 2px 8px rgba(26,95,188,0.1)',
-              transition: 'background 0.3s ease', outline: 'none',
-            }}
-          >
-            {isDark ? (
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7aaac8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>
-              </svg>
-            ) : (
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1a5fbc" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="5"/>
-                <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
-                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
-                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-              </svg>
-            )}
-          </button>
-        ) : (
-          /* Desktop: pill con texto */
-          <div
-            onClick={toggleDark}
-            style={{
-              position: 'relative', width: '86px', height: '36px', borderRadius: '999px',
-              background: isDark ? '#1a2540' : '#e8f0fe',
-              border: `1.5px solid ${isDark ? 'rgba(26,95,188,0.35)' : 'rgba(26,95,188,0.2)'}`,
-              cursor: 'pointer', userSelect: 'none',
-              transition: 'background 0.3s ease, border-color 0.3s ease',
-              boxShadow: isDark ? '0 2px 10px rgba(0,0,0,0.3)' : '0 2px 8px rgba(26,95,188,0.1)',
-            }}
-          >
-            <span style={{
-              position: 'absolute', top: '50%', transform: 'translateY(-50%)',
-              left: isDark ? '12px' : '34px',
-              fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.04em',
-              color: isDark ? '#7aaac8' : '#1a5fbc',
-              transition: 'left 0.3s ease', whiteSpace: 'nowrap',
-            }}>
-              {isDark ? 'Noche' : 'Día'}
-            </span>
-            <div style={{
-              position: 'absolute', top: '4px',
-              left: isDark ? '4px' : 'calc(100% - 40px)',
-              width: '28px', height: '28px', borderRadius: '50%',
-              background: isDark ? '#1e3460' : '#fff',
-              boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.4)' : '0 2px 8px rgba(26,95,188,0.2)',
-              display: 'grid', placeItems: 'center',
-              transition: 'left 0.3s cubic-bezier(0.4,0,0.2,1), background 0.3s ease',
-            }}>
-              {isDark ? (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7aaac8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>
-                </svg>
-              ) : (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1a5fbc" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="5"/>
-                  <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
-                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                  <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
-                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-                </svg>
-              )}
-            </div>
-          </div>
-        )}
+        <ThemeToggle isDark={isDark} onToggle={toggleDark} isMobile={isMobile} />
       </div>
 
       {/* Ambient orbs */}
