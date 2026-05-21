@@ -1,6 +1,7 @@
 import { SolverInput, SolverOutput } from '../../contracts/eoq';
 import { ConversationMessage } from '../../session/simple-session';
 import { loadLlmInterpreterConfig } from '../../config/llm-config';
+import { EOQ_THEORY_REFERENCE } from '../../domain/knowledge/eoq-theory';
 
 const buildSystemPrompt = (solverInput: SolverInput, solverOutput: SolverOutput): string => {
   const demands = solverInput.periodDemands?.join(', ') ?? solverInput.demandRate;
@@ -67,6 +68,12 @@ const buildSystemPrompt = (solverInput: SolverInput, solverOutput: SolverOutput)
     '- No repetís información que ya está en la tabla de resultados.',
     '- No usás markdown (* ** # etc), solo texto plano con saltos de línea y "•".',
     '- Nunca escribas fórmulas matemáticas largas. Si necesitás una, usala en una línea corta.',
+    '',
+    '=== TEORÍA DE REFERENCIA (consultala para responder preguntas conceptuales) ===',
+    'Si el estudiante hace una pregunta teórica (definiciones, supuestos, comparaciones,',
+    'algoritmos, MRP, Wagner-Whitin, Silver-Meal, etc.), basate en este material.',
+    'No inventés datos fuera de esta base ni cites páginas/secciones del libro.',
+    EOQ_THEORY_REFERENCE,
   ].join('\n');
 };
 
@@ -82,6 +89,10 @@ const GENERIC_SYSTEM_PROMPT = [
   '- Usá saltos de línea y "•" para listas.',
   '- Sin markdown (* ** #), solo texto plano.',
   '- Tono claro y pedagógico, como un docente que explica en clase.',
+  '',
+  'Base teórica que tenés que usar como referencia (no inventes contenido fuera de acá,',
+  'no cites páginas ni secciones del libro al estudiante):',
+  EOQ_THEORY_REFERENCE,
 ].join('\n');
 
 const groqPost = async (messages: Array<{ role: string; content: string }>): Promise<string> => {
