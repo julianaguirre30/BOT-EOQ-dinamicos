@@ -923,17 +923,6 @@ export const ChatShell = () => {
               </button>
             )}
             <span style={{ fontWeight: 600, fontSize: isMobile ? '0.88rem' : '0.95rem', color: palette.text, whiteSpace: 'nowrap' }}>EOQ Dinámico</span>
-            {!isMobile && (
-              <span style={{
-                fontSize: '0.7rem', color: palette.blue,
-                background: palette.toggleBg,
-                border: `1px solid ${palette.toggleBorder}`,
-                borderRadius: '999px', padding: '2px 9px', fontWeight: 500,
-                whiteSpace: 'nowrap',
-              }}>
-                Wagner-Whitin
-              </span>
-            )}
           </div>
 
           {/* Toggle día/noche */}
