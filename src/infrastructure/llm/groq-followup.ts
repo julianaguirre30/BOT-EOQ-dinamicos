@@ -24,11 +24,26 @@ const THEORY_AND_CITATION = [
 ].join('\n');
 
 const buildSystemPrompt = (solverInput: SolverInput, solverOutput: SolverOutput): string => {
-  const demands = solverInput.periodDemands?.join(', ') ?? solverInput.demandRate;
   const hasSetup = solverInput.branch === 'with_setup';
   const setupCost = hasSetup
     ? (solverInput as Extract<SolverInput, { branch: 'with_setup'; variant: 'scalar' }>).setupCost
     : null;
+
+  // ── Inventario inicial ────────────────────────────────────────────────────
+  const initialInventory = solverInput.initialInventory ?? 0;
+  const hasI0 = initialInventory > 0;
+
+  const actualDemands = solverInput.periodDemands ?? [];
+  // Demandas efectivas = demandas reales menos I₀ en cascada
+  let effectiveDemands = actualDemands;
+  if (hasI0) {
+    let remaining = initialInventory;
+    effectiveDemands = actualDemands.map((d) => {
+      const net = Math.max(0, d - remaining);
+      remaining = Math.max(0, remaining - d);
+      return net;
+    });
+  }
 
   const plan = solverOutput.policy.replenishmentPlan
     .map((p) =>
@@ -41,25 +56,78 @@ const buildSystemPrompt = (solverInput: SolverInput, solverOutput: SolverOutput)
   const { setupOrOrderingCost, holdingCost, totalRelevantCost } =
     solverOutput.mathematicalArtifacts.costBreakdown;
 
-  const demandList = (solverInput.periodDemands ?? []).join(', ');
-  const totalDemand = (solverInput.periodDemands ?? []).reduce((s, d) => s + d, 0);
-  const n = solverInput.periodDemands?.length ?? 1;
+  const n = actualDemands.length ?? 1;
+  const demandList = actualDemands.join(', ');
+
+  // Para los few-shot de WHATIF: cuando hay I₀, las cantidades a pedir
+  // son sobre demandas EFECTIVAS (lo que falta comprar, no la demanda bruta).
+  const totalEffectiveDemand = effectiveDemands.reduce((s, d) => s + d, 0);
   const zerosTail = Array(Math.max(0, n - 1)).fill(0).join(', ');
-  const loteALoteExample = (solverInput.periodDemands ?? []).join(', ');
+  const loteALoteExample = effectiveDemands.join(', ');  // usa efectivas
+
+  // Línea de balance para el prompt (primeros 2 períodos del plan)
+  const balanceLines: string[] = [];
+  if (hasI0) {
+    let inv = initialInventory;
+    for (let t = 0; t < Math.min(n, 4); t += 1) {
+      const lot = solverOutput.policy.replenishmentPlan.find((p) => p.period === t + 1);
+      const q = lot?.quantity ?? 0;
+      const prevInv = inv;
+      inv = prevInv + q - actualDemands[t];
+      balanceLines.push(
+        `  Período ${t + 1}: I_${t} + Q_${t + 1} − D_${t + 1} = ${prevInv} + ${q} − ${actualDemands[t]} = ${inv}`,
+      );
+    }
+  }
 
   return [
     'Sos un asistente de EOQ dinámico (Wagner-Whitin) para estudiantes de IO de la UTN FRRe.',
     '',
     '=== PROBLEMA EN CURSO ===',
-    `Períodos: ${n} · Demandas (D1..Dn): [${demands}]`,
+    `Períodos: ${n} · Demandas originales (D1..Dn): [${demandList}]`,
     `Costo de almacenamiento: ${solverInput.holdingCost}`,
     hasSetup ? `Costo fijo de pedido: ${setupCost}` : 'Sin costo fijo (lote a lote)',
+    hasI0 ? `Inventario inicial I₀: ${initialInventory}` : 'Sin inventario inicial (I₀ = 0)',
+    hasI0 ? `Demandas efectivas (originales − I₀ en cascada): [${effectiveDemands.join(', ')}]` : '',
     '',
     '=== PLAN ÓPTIMO ===',
     plan,
     '',
     '=== COSTOS ÓPTIMOS ===',
     `Fijo: ${setupOrOrderingCost} · Almacenamiento: ${holdingCost} · Relevante total: ${totalRelevantCost}`,
+    '',
+    ...(hasI0 ? [
+      '=== INVENTARIO INICIAL — REGLAS CRÍTICAS ===',
+      `I₀ = ${initialInventory}. Los pedidos Q_t se calcularon sobre DEMANDAS EFECTIVAS`,
+      `(demanda real − stock disponible), NO sobre las demandas originales.`,
+      '',
+      `  Demandas originales: [${demandList}]`,
+      `  Demandas efectivas:  [${effectiveDemands.join(', ')}]`,
+      '',
+      `Balance de inventario: I_t = I_{t−1} + Q_t − D_t_original  (arranca desde I₀ = ${initialInventory})`,
+      ...balanceLines,
+      '',
+      'REGLA 1 — Cantidades del plan:',
+      '  Los pedidos del plan son MENORES a la suma de demandas originales porque I₀ ya cubre',
+      '  parte de la demanda. Nunca digas que un pedido "cubre parte de un período" si',
+      '  el balance muestra que ese período queda con inventario ≥ 0.',
+      '',
+      'REGLA 2 — Por qué Q_t = X y no Y:',
+      '  Si el estudiante pregunta por qué el pedido es menor a lo esperado, la razón es',
+      '  SIEMPRE I₀: Q_t = demanda_efectiva_t (= demanda_original_t − stock_disponible).',
+      '  Mostrá el cálculo explícito: "Q_1 = D_1 − I₀ + D_2 = ... = X".',
+      '',
+      'REGLA 3 — WHATIF con I₀:',
+      '  Para planes alternativos, los q_i del marcador [WHATIF] son cantidades a PEDIR',
+      '  (no la demanda bruta). El estudiante ya tiene I₀ disponible, así que pedir la',
+      '  demanda bruta generaría sobrestock. Usá demandas EFECTIVAS en los ejemplos.',
+      '',
+      `Few-shot I₀ — pregunta típica "¿por qué Q_${solverOutput.policy.replenishmentPlan[0]?.period ?? 1} = ${solverOutput.policy.replenishmentPlan[0]?.quantity} y no más?":`,
+      `  Porque ya había **${initialInventory} unidades** en stock (I₀ = ${initialInventory}).`,
+      `  La demanda efectiva del período 1 es ${actualDemands[0]} − ${initialInventory} = ${effectiveDemands[0]}.`,
+      `  El pedido óptimo cubre los períodos agrupados usando esas demandas efectivas.`,
+      '',
+    ] : []),
     '',
     '=== CÓMO RESPONDER ===',
     'REGLA CRÍTICA: en tu respuesta al estudiante NO repitas, NO parafrasees, NO cites estas',
@@ -96,21 +164,21 @@ const buildSystemPrompt = (solverInput: SolverInput, solverOutput: SolverOutput)
     '    NO escribas costos, comparaciones, porcentajes ni explicaciones extra: el sistema',
     '    los calcula y los muestra después del marcador.',
     '',
-    `    Few-shot [WHATIF] para ESTE problema (demandas = [${demandList}], total = ${totalDemand}):`,
+    `    Few-shot [WHATIF] para ESTE problema (cantidades a pedir = demandas efectivas [${effectiveDemands.join(', ')}], total = ${totalEffectiveDemand}):`,
     '',
     '    Estudiante: "y si hago lote a lote"',
     '    Asistente:',
-    '        Pedimos en cada periodo exactamente su demanda.',
+    `        Pedimos en cada periodo exactamente su demanda${hasI0 ? ' neta (descontando I₀)' : ''}.`,
     `        [WHATIF: ${loteALoteExample}]`,
     '',
     '    Estudiante: "qué pasa si pido todo al principio"',
     '    Asistente:',
-    '        Concentramos toda la demanda en un solo pedido en el periodo 1.',
-    `        [WHATIF: ${totalDemand}${zerosTail ? ', ' + zerosTail : ''}]`,
+    `        Concentramos toda la demanda${hasI0 ? ' neta' : ''} en un solo pedido en el periodo 1.`,
+    `        [WHATIF: ${totalEffectiveDemand}${zerosTail ? ', ' + zerosTail : ''}]`,
     '',
     '    Estudiante: "qué pasa si pido en todos los periodos"',
     '    Asistente:',
-    '        Hacemos un pedido en cada periodo cubriendo solo su demanda (equivale a lote a lote).',
+    `        Hacemos un pedido en cada periodo cubriendo solo su demanda${hasI0 ? ' neta' : ''} (equivale a lote a lote).`,
     `        [WHATIF: ${loteALoteExample}]`,
     '',
     '(3) Cambio de COSTOS (setup o holding) — respuesta CUALITATIVA, sin marcador:',
