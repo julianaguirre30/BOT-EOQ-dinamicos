@@ -162,7 +162,12 @@ const buildSystemPrompt = (solverInput: SolverInput, solverOutput: SolverOutput)
 
 const GENERIC_SYSTEM_PROMPT = [
   'Sos un asistente educativo de EOQ dinámico (Wagner-Whitin) para estudiantes de IO de la UTN FRRe.',
-  'Respondés preguntas conceptuales; no resolvés problemas con números concretos.',
+  'Respondés preguntas conceptuales basándote en la teoría de referencia, incluyendo ejemplos prácticos.',
+  'IMPORTANTE: Los ejemplos numéricos que aparecen en la TEORÍA DE REFERENCIA (con demandas, costos, etc.)',
+  'SÍ deben ser resueltos y explicados de forma natural y pedagógica cuando el estudiante lo pide.',
+  'Resolvé como si fuera un problema normal: explicá el razonamiento de forma conversacional, no como',
+  'un listado rígido. Mostrá solo los pasos y cálculos relevantes, sin exceso de estructura.',
+  'Solo rechazás problemas nuevos que el estudiante inventa o aporta fuera de esos ejemplos teóricos.',
   'Fuera del dominio inventario/EOQ: aclará que solo podés ayudar con eso.',
   '',
   FORMAT_RULES,
@@ -227,6 +232,61 @@ export const callGroqGeneric = async (userText: string): Promise<string> =>
     { role: 'system', content: GENERIC_SYSTEM_PROMPT },
     { role: 'user',   content: userText },
   ]);
+
+// Ejemplo Wagner-Whitin precompilado para fines educativos
+const EXAMPLE_WAGNER_WHITIN_SOLVER_INPUT: SolverInput = {
+  branch: 'with_setup',
+  variant: 'scalar',
+  periodDemands: [10, 20, 15, 30],
+  holdingCost: 5,
+  setupCost: 100,
+};
+
+const EXAMPLE_WAGNER_WHITIN_SOLVER_OUTPUT: SolverOutput = {
+  branch: 'with_setup',
+  solverFamily: 'exact_with_setup',
+  policy: {
+    orderQuantity: 35,
+    replenishmentPlan: [
+      { period: 1, quantity: 10, coversThroughPeriod: 1 },
+      { period: 2, quantity: 35, coversThroughPeriod: 3 },
+      { period: 4, quantity: 30, coversThroughPeriod: 4 },
+    ],
+  },
+  computed: {},
+  equations: ['Wagner-Whitin (DP exacto para lot-sizing con setup)'],
+  mathematicalArtifacts: {
+    demandSchedule: [10, 20, 15, 30],
+    endingInventoryByPeriod: [0, 15, 0, 0],
+    orderPeriods: [1, 2, 4],
+    costBreakdown: {
+      setupOrOrderingCost: 300,
+      holdingCost: 75,
+      totalRelevantCost: 375,
+    },
+  },
+};
+
+const isAskingAboutExample = (text: string): boolean => {
+  const normalized = text.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+  return (
+    normalized.includes('wagner') ||
+    normalized.includes('ejemplo') ||
+    normalized.includes('ejemplo practico') ||
+    normalized.includes('resuelve el ejemplo') ||
+    normalized.includes('demandas 10')
+  );
+};
+
+export const callGroqExampleWagnerWhitin = async (userText: string): Promise<string> => {
+  const result = await callGroqFollowUp({
+    history: [],
+    userText,
+    solverInput: EXAMPLE_WAGNER_WHITIN_SOLVER_INPUT,
+    solverOutput: EXAMPLE_WAGNER_WHITIN_SOLVER_OUTPUT,
+  });
+  return result.message;
+};
 
 export const callGroqFollowUp = async ({
   history,

@@ -3,7 +3,7 @@ import { SolverInput, SolverOutput } from '../../contracts/eoq';
 import { solveExactWithSetup, solveExactNoSetup } from '../../domain/solver/exact-solvers';
 import { evaluateCustomPlan, formatPlanEvaluation } from '../../domain/solver/plan-evaluator';
 import { getSession, saveSession, ConversationMessage } from '../../session/simple-session';
-import { callGroqFollowUp, callGroqGeneric, RateLimitedError } from '../../infrastructure/llm/groq-followup';
+import { callGroqFollowUp, callGroqGeneric, callGroqExampleWagnerWhitin, RateLimitedError } from '../../infrastructure/llm/groq-followup';
 
 // ─── "What-if" marker handling ────────────────────────────────────────────────
 // El LLM emite [WHATIF: q1, q2, q3, ...] al final del mensaje cuando el
@@ -133,13 +133,28 @@ const buildSolverSummary = (input: SolverInput, output: SolverOutput): string =>
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
+const isAskingAboutExample = (text: string): boolean => {
+  const normalized = text.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+  return (
+    normalized.includes('wagner') ||
+    normalized.includes('ejemplo') ||
+    normalized.includes('ejemplo practico') ||
+    normalized.includes('resuelve el ejemplo') ||
+    (normalized.includes('demanda') && normalized.includes('10') && normalized.includes('20')) ||
+    normalized.includes('demandas 10')
+  );
+};
+
 export const handleSimpleChatRequest = async (body: unknown): Promise<SimpleChatResponse> => {
   const req = SimpleChatRequestSchema.parse(body);
 
   // ── Generic (preguntas sin sesión activa) ─────────────────────────────────
   if (req.type === 'generic') {
     try {
-      const message = await callGroqGeneric(req.userText);
+      // Detectar si pregunta sobre el ejemplo Wagner-Whitin
+      const message = isAskingAboutExample(req.userText)
+        ? await callGroqExampleWagnerWhitin(req.userText)
+        : await callGroqGeneric(req.userText);
       return { type: 'generic', message };
     } catch (error) {
       if (error instanceof RateLimitedError) {
