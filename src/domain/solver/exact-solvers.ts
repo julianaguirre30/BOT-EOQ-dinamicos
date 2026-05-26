@@ -12,12 +12,30 @@ export const toDemandSchedule = (input: SolverInput): number[] => {
   return [input.demandRate as number];
 };
 
+/**
+ * Descuenta el inventario inicial de las demandas en cascada.
+ * El stock cubre primero el período 1, luego el 2, etc.
+ * Ejemplo: demands=[200,150,180,220], I₀=50 → [150,150,180,220]
+ */
+export const adjustDemandsForInitialInventory = (
+  demands: number[],
+  initialInventory: number,
+): number[] => {
+  let remaining = initialInventory;
+  return demands.map((d) => {
+    const net  = Math.max(0, d - remaining);
+    remaining  = Math.max(0, remaining - d);
+    return net;
+  });
+};
+
 const buildEndingInventory = (
   demandSchedule: number[],
   replenishmentPlan: ReplenishmentPlanEntry[],
+  initialInventory = 0,
 ): number[] => {
   const endingInventoryByPeriod: number[] = [];
-  let onHand = 0;
+  let onHand = initialInventory;
 
   for (let periodIndex = 0; periodIndex < demandSchedule.length; periodIndex += 1) {
     const period = periodIndex + 1;
@@ -150,7 +168,16 @@ const buildSilverMealComparison = (
 };
 
 export const solveExactWithSetup = (input: Extract<SolverInput, { branch: 'with_setup' }>): SolverOutput => {
-  const demandSchedule = toDemandSchedule(input);
+  const actualDemandSchedule = toDemandSchedule(input);
+  const initialInventory      = input.initialInventory ?? 0;
+
+  // Las demandas efectivas descuentan el inventario inicial en cascada.
+  // El algoritmo W-W corre sobre ellas para que las cantidades a pedir
+  // reflejen solo la necesidad real de compra.
+  const demandSchedule = initialInventory > 0
+    ? adjustDemandsForInitialInventory(actualDemandSchedule, initialInventory)
+    : actualDemandSchedule;
+
   const horizon = demandSchedule.length;
   const optimalCost: number[] = Array(horizon + 2).fill(0);
   const nextOrderPeriod: number[] = Array(horizon + 1).fill(0);
@@ -160,6 +187,14 @@ export const solveExactWithSetup = (input: Extract<SolverInput, { branch: 'with_
       : (input.setupCost as number);
 
   for (let period = horizon; period >= 1; period -= 1) {
+    // Períodos con demanda efectiva = 0 (cubiertos por I₀): no se generan pedidos.
+    // Su costo óptimo es igual al del siguiente período.
+    if (demandSchedule[period - 1] === 0) {
+      optimalCost[period] = optimalCost[period + 1];
+      nextOrderPeriod[period] = -1; // marcador: no se pide en este período
+      continue;
+    }
+
     let bestCost = Number.POSITIVE_INFINITY;
     let bestCoverageEnd = period;
 
@@ -182,6 +217,11 @@ export const solveExactWithSetup = (input: Extract<SolverInput, { branch: 'with_
   let currentPeriod = 1;
 
   while (currentPeriod <= horizon) {
+    // Saltar períodos sin demanda efectiva (cubiertos por I₀)
+    if (demandSchedule[currentPeriod - 1] === 0) {
+      currentPeriod += 1;
+      continue;
+    }
     const coversThroughPeriod = nextOrderPeriod[currentPeriod];
     replenishmentPlan.push({
       period: currentPeriod,
@@ -191,7 +231,9 @@ export const solveExactWithSetup = (input: Extract<SolverInput, { branch: 'with_
     currentPeriod = coversThroughPeriod + 1;
   }
 
-  const endingInventoryByPeriod = buildEndingInventory(demandSchedule, replenishmentPlan);
+  // El inventario final usa las demandas REALES partiendo de I₀.
+  // El costo se calcula sobre las demandas EFECTIVAS (las que determinaron los lotes).
+  const endingInventoryByPeriod = buildEndingInventory(actualDemandSchedule, replenishmentPlan, initialInventory);
   const costBreakdown = buildCostBreakdown(
     demandSchedule,
     replenishmentPlan,
@@ -224,7 +266,7 @@ export const solveExactWithSetup = (input: Extract<SolverInput, { branch: 'with_
       'La política exacta se obtiene reconstruyendo el período final cubierto por cada pedido óptimo.',
     ],
     mathematicalArtifacts: {
-      demandSchedule,
+      demandSchedule: actualDemandSchedule,   // demandas reales para mostrar en la UI
       endingInventoryByPeriod,
       orderPeriods: replenishmentPlan.map((entry) => entry.period),
       costBreakdown,
@@ -234,7 +276,14 @@ export const solveExactWithSetup = (input: Extract<SolverInput, { branch: 'with_
 };
 
 export const solveExactNoSetup = (input: Extract<SolverInput, { branch: 'no_setup' }>): SolverOutput => {
-  const demandSchedule = toDemandSchedule(input);
+  const actualDemandSchedule = toDemandSchedule(input);
+  const initialInventory      = input.initialInventory ?? 0;
+
+  // Para lote-a-lote: los períodos cubiertos por I₀ tienen cantidad 0.
+  const demandSchedule = initialInventory > 0
+    ? adjustDemandsForInitialInventory(actualDemandSchedule, initialInventory)
+    : actualDemandSchedule;
+
   const assignments = input.variant === 'unit_cost_by_period'
     ? assignDemandPeriodsToOrderPeriods(demandSchedule, input.unitCostByPeriod as number[], input.holdingCost)
     : [];
@@ -262,12 +311,15 @@ export const solveExactNoSetup = (input: Extract<SolverInput, { branch: 'no_setu
             coversThroughPeriod: plan.coversThroughPeriod,
           }));
       })()
-    : demandSchedule.map((demand, index) => ({
-        period: index + 1,
-        quantity: round(demand),
-        coversThroughPeriod: index + 1,
-      }));
-  const endingInventoryByPeriod = buildEndingInventory(demandSchedule, replenishmentPlan);
+    : demandSchedule
+        .map((demand, index) => ({
+          period: index + 1,
+          quantity: round(demand),
+          coversThroughPeriod: index + 1,
+        }))
+        // Filtrar períodos con demanda efectiva = 0 (cubiertos por I₀)
+        .filter((entry) => entry.quantity > 0);
+  const endingInventoryByPeriod = buildEndingInventory(actualDemandSchedule, replenishmentPlan, initialInventory);
   const costBreakdown = (() => {
     if (input.variant === 'unit_cost_by_period') {
       let purchaseCost = 0;
@@ -287,9 +339,9 @@ export const solveExactNoSetup = (input: Extract<SolverInput, { branch: 'no_setu
 
     if (input.unitCost !== undefined) {
       return {
-        setupOrOrderingCost: round(demandSchedule.reduce((total, demand) => total + demand * input.unitCost!, 0)),
+        setupOrOrderingCost: round(actualDemandSchedule.reduce((total, demand) => total + demand * input.unitCost!, 0)),
         holdingCost: 0,
-        totalRelevantCost: round(demandSchedule.reduce((total, demand) => total + demand * input.unitCost!, 0)),
+        totalRelevantCost: round(actualDemandSchedule.reduce((total, demand) => total + demand * input.unitCost!, 0)),
       };
     }
 
@@ -305,7 +357,7 @@ export const solveExactNoSetup = (input: Extract<SolverInput, { branch: 'no_setu
       replenishmentPlan,
     },
     computed: {
-      planningHorizonPeriods: demandSchedule.length,
+      planningHorizonPeriods: actualDemandSchedule.length,
       numberOfOrders: replenishmentPlan.length,
       totalRelevantCost: costBreakdown.totalRelevantCost,
     },
@@ -318,7 +370,7 @@ export const solveExactNoSetup = (input: Extract<SolverInput, { branch: 'no_setu
         : 'Q_t* = d_t para todo período t del horizonte determinístico.',
     ],
     mathematicalArtifacts: {
-      demandSchedule,
+      demandSchedule: actualDemandSchedule,   // demandas reales para la UI
       endingInventoryByPeriod,
       orderPeriods: replenishmentPlan.map((entry) => entry.period),
       costBreakdown,

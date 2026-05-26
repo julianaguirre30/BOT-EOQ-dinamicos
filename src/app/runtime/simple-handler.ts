@@ -41,12 +41,13 @@ export const GenericRequestSchema = z.object({
 });
 
 export const SolveRequestSchema = z.object({
-  type: z.literal('solve'),
-  sessionId: z.string().optional(),
-  periodDemands: z.array(z.number().finite().nonnegative()).min(1),
-  hasSetupCost: z.boolean(),
-  setupCost: z.number().positive().optional(),
-  holdingCost: z.number().positive(),
+  type:             z.literal('solve'),
+  sessionId:        z.string().optional(),
+  periodDemands:    z.array(z.number().finite().nonnegative()).min(1),
+  hasSetupCost:     z.boolean(),
+  setupCost:        z.number().positive().optional(),
+  holdingCost:      z.number().positive(),
+  initialInventory: z.number().nonnegative().optional(),
 });
 
 export const FollowUpRequestSchema = z.object({
@@ -95,18 +96,20 @@ export type SimpleChatResponse = GenericResponse | SolveResponse | FollowUpRespo
 const buildSolverInput = (req: SolveRequest): SolverInput => {
   if (req.hasSetupCost && req.setupCost !== undefined) {
     return {
-      branch: 'with_setup',
-      variant: 'scalar',
-      periodDemands: req.periodDemands,
-      setupCost: req.setupCost,
-      holdingCost: req.holdingCost,
+      branch:           'with_setup',
+      variant:          'scalar',
+      periodDemands:    req.periodDemands,
+      setupCost:        req.setupCost,
+      holdingCost:      req.holdingCost,
+      initialInventory: req.initialInventory,
     };
   }
   return {
-    branch: 'no_setup',
-    variant: 'scalar',
-    periodDemands: req.periodDemands,
-    holdingCost: req.holdingCost,
+    branch:           'no_setup',
+    variant:          'scalar',
+    periodDemands:    req.periodDemands,
+    holdingCost:      req.holdingCost,
+    initialInventory: req.initialInventory,
   };
 };
 

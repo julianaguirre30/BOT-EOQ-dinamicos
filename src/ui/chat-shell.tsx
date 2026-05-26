@@ -280,23 +280,25 @@ const Sidebar = ({
 };
 
 // ─── Wizard Stepper ───────────────────────────────────────────────────────────
-type WizardStep = 'periodCount' | 'demands' | 'hasOrderCost' | 'orderCost' | 'holdingCost' | 'completed';
+type WizardStep = 'periodCount' | 'demands' | 'hasOrderCost' | 'orderCost' | 'holdingCost' | 'hasInitialInventory' | 'initialInventory' | 'completed';
 
 const WIZARD_STEPS_WITH_SETUP: { key: WizardStep; label: string }[] = [
-  { key: 'periodCount',  label: 'Períodos'       },
-  { key: 'demands',      label: 'Demandas'        },
-  { key: 'hasOrderCost', label: 'Tipo de costo'   },
-  { key: 'orderCost',    label: 'Costo fijo'      },
-  { key: 'holdingCost',  label: 'Almacenamiento'  },
-  { key: 'completed',    label: 'Resultado'        },
+  { key: 'periodCount',          label: 'Períodos'       },
+  { key: 'demands',              label: 'Demandas'        },
+  { key: 'hasOrderCost',         label: 'Tipo de costo'   },
+  { key: 'orderCost',            label: 'Costo fijo'      },
+  { key: 'holdingCost',          label: 'Almacenamiento'  },
+  { key: 'hasInitialInventory',  label: 'Stock inicial'   },
+  { key: 'completed',            label: 'Resultado'        },
 ];
 
 const WIZARD_STEPS_NO_SETUP: { key: WizardStep; label: string }[] = [
-  { key: 'periodCount',  label: 'Períodos'       },
-  { key: 'demands',      label: 'Demandas'        },
-  { key: 'hasOrderCost', label: 'Tipo de costo'   },
-  { key: 'holdingCost',  label: 'Almacenamiento'  },
-  { key: 'completed',    label: 'Resultado'        },
+  { key: 'periodCount',          label: 'Períodos'       },
+  { key: 'demands',              label: 'Demandas'        },
+  { key: 'hasOrderCost',         label: 'Tipo de costo'   },
+  { key: 'holdingCost',          label: 'Almacenamiento'  },
+  { key: 'hasInitialInventory',  label: 'Stock inicial'   },
+  { key: 'completed',            label: 'Resultado'        },
 ];
 
 const WizardStepper = ({
@@ -308,10 +310,12 @@ const WizardStepper = ({
   isMobile?: boolean;
 }) => {
   const WIZARD_STEPS = hasOrderCost === false ? WIZARD_STEPS_NO_SETUP : WIZARD_STEPS_WITH_SETUP;
-  const wizardKeys: WizardStep[] = ['periodCount', 'demands', 'hasOrderCost', 'orderCost', 'holdingCost', 'completed'];
+  const wizardKeys: WizardStep[] = ['periodCount', 'demands', 'hasOrderCost', 'orderCost', 'holdingCost', 'hasInitialInventory', 'initialInventory', 'completed'];
   if (!wizardKeys.includes(step as WizardStep)) return null;
 
-  const currentIdx = WIZARD_STEPS.findIndex(s => s.key === step);
+  // 'initialInventory' (cantidad) se muestra bajo el mismo paso que 'hasInitialInventory'
+  const displayStep = step === 'initialInventory' ? 'hasInitialInventory' : step;
+  const currentIdx = WIZARD_STEPS.findIndex(s => s.key === displayStep);
   const palette = isDark ? DARK : LIGHT;
 
   return (
@@ -399,11 +403,12 @@ const WizardStepper = ({
 const initialEntries: ChatEntry[] = [];
 
 const initialProblemData = {
-  periodCount:  0,
-  demands:      [] as number[],
-  hasOrderCost: undefined as boolean | undefined,
-  orderCost:    undefined as number | undefined,
-  holdingCost:  undefined as number | undefined,
+  periodCount:       0,
+  demands:           [] as number[],
+  hasOrderCost:      undefined as boolean | undefined,
+  orderCost:         undefined as number | undefined,
+  holdingCost:       undefined as number | undefined,
+  initialInventory:  0,
 };
 
 export const ChatShell = () => {
@@ -413,7 +418,7 @@ export const ChatShell = () => {
   const [error,               setError]               = useState<string | null>(null);
   const [isSubmitting,        setIsSubmitting]        = useState(false);
   const [pendingResetProblem, setPendingResetProblem] = useState(false);
-  const [step,                setStep]                = useState<'welcome' | 'chatting' | 'periodCount' | 'demands' | 'hasOrderCost' | 'orderCost' | 'holdingCost' | 'completed'>('welcome');
+  const [step,                setStep]                = useState<'welcome' | 'chatting' | 'periodCount' | 'demands' | 'hasOrderCost' | 'orderCost' | 'holdingCost' | 'hasInitialInventory' | 'initialInventory' | 'completed'>('welcome');
   const [problemData,         setProblemData]         = useState(initialProblemData);
   const [sidebarCollapsed,    setSidebarCollapsed]    = useState(false);
   const [conversations,       setConversations]       = useState<ConvRecord[]>([]);
@@ -559,14 +564,77 @@ export const ChatShell = () => {
   // ── Opciones sí/no ────────────────────────────────────────────────────────────
   const handleOptionSelect = (value: string) => {
     if (value === NEW_PROBLEM_VALUE) { startFreshProblem(); return; }
-    if (step !== 'hasOrderCost') return;
+
     setEntries(prev => [...prev, { id: `user-${crypto.randomUUID()}`, role: 'user' as const, text: value }]);
-    const yes = /^(s|si|sí|yes|y)$/i.test(value.toLowerCase().trim());
-    const no  = /^(n|no)$/i.test(value.toLowerCase().trim());
-    if (!yes && !no) { appendAssistantMessage('Respondé con sí o no. ¿El problema tiene costo de pedido fijo?'); return; }
-    setProblemData(prev => ({ ...prev, hasOrderCost: yes }));
-    if (yes) { setStep('orderCost');    appendAssistantMessage('Ingresá el costo de pedido fijo.'); }
-    else     { setStep('holdingCost'); appendAssistantMessage('Perfecto. Ahora ingresá el costo de almacenamiento por unidad y período.'); }
+
+    if (step === 'hasOrderCost') {
+      const yes = /^(s|si|sí|yes|y)$/i.test(value.toLowerCase().trim());
+      const no  = /^(n|no)$/i.test(value.toLowerCase().trim());
+      if (!yes && !no) { appendAssistantMessage('Respondé con sí o no. ¿El problema tiene costo de pedido fijo?'); return; }
+      setProblemData(prev => ({ ...prev, hasOrderCost: yes }));
+      if (yes) { setStep('orderCost');    appendAssistantMessage('Ingresá el costo de pedido fijo.'); }
+      else     { setStep('holdingCost'); appendAssistantMessage('Perfecto. Ahora ingresá el costo de almacenamiento por unidad y período.'); }
+      return;
+    }
+
+    if (step === 'hasInitialInventory') {
+      const yes = /^(s|si|sí|yes|y)$/i.test(value.toLowerCase().trim());
+      const no  = /^(n|no)$/i.test(value.toLowerCase().trim());
+      if (!yes && !no) { appendAssistantMessage('Respondé con sí o no. ¿Tenés stock disponible antes del período 1?'); return; }
+
+      if (yes) {
+        setStep('initialInventory');
+        appendAssistantMessage('¿Cuántas unidades tenés en stock al inicio del período 1?');
+        return;
+      }
+
+      // No hay inventario inicial → resolvemos directamente con I₀ = 0
+      const finalData = { ...problemData, initialInventory: 0 };
+      setProblemData(finalData);
+      setStep('completed');
+      appendAssistantMessage('Perfecto, calculando el plan óptimo...');
+
+      void (async () => {
+        try {
+          setIsSubmitting(true);
+          const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type:          'solve',
+              sessionId,
+              periodDemands: finalData.demands,
+              hasSetupCost:  finalData.hasOrderCost ?? false,
+              setupCost:     finalData.orderCost,
+              holdingCost:   finalData.holdingCost,
+            }),
+          });
+          const payload = (await res.json()) as SimpleChatResponse | { error?: string };
+          if (!res.ok || !('type' in payload))
+            throw new Error('error' in payload && payload.error ? payload.error : 'No se pudo completar el cálculo.');
+          const solvePayload = payload as SolveResponse;
+          setSessionId(solvePayload.sessionId);
+          const sp: SolvePayload = {
+            sessionId:    solvePayload.sessionId,
+            solverInput:  solvePayload.solverInput,
+            solverOutput: solvePayload.solverOutput,
+          };
+          setLastSolvePayload(sp);
+          setEntries(prev => [...prev, {
+            id: `assistant-${crypto.randomUUID()}`,
+            role: 'assistant' as const,
+            text: solvePayload.message,
+            solvePayload: sp,
+          }]);
+          appendAssistantMessage('¿Tenés alguna pregunta sobre el plan o los costos?');
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Falló el cálculo.');
+          setStep('hasInitialInventory');
+        } finally {
+          setIsSubmitting(false);
+        }
+      })();
+    }
   };
 
   const parseNumberList = (text: string) =>
@@ -745,6 +813,19 @@ export const ChatShell = () => {
         return;
       }
 
+      if (step === 'hasInitialInventory') {
+        const yes = /^(s|si|sí|yes|y)$/i.test(normalized);
+        const no  = /^(n|no)$/i.test(normalized);
+        if (!yes && !no) { appendAssistantMessage('Respondé con sí o no. ¿Tenés stock disponible antes del período 1?'); return; }
+        if (yes) {
+          setStep('initialInventory');
+          appendAssistantMessage('¿Cuántas unidades tenés en stock al inicio del período 1?');
+        } else {
+          handleOptionSelect('no');
+        }
+        return;
+      }
+
       if (step === 'holdingCost') {
         if (/,/.test(userText)) {
           appendAssistantMessage('Usá punto para los decimales, no coma. Ingresá un valor numérico positivo para el costo de almacenamiento, por ejemplo: 1.5.');
@@ -755,8 +836,39 @@ export const ChatShell = () => {
           appendAssistantMessage('Ingresá un valor numérico positivo para el costo de almacenamiento (usá punto como separador decimal, ej: 1.5).');
           return;
         }
-        const finalData = { ...problemData, holdingCost };
+        setProblemData(prev => ({ ...prev, holdingCost }));
+        setStep('hasInitialInventory');
+        appendAssistantOptions('¿Tenés stock disponible antes del período 1?', [
+          { label: 'Sí', value: 'sí' },
+          { label: 'No', value: 'no' },
+        ]);
+        return;
+      }
+
+      if (step === 'initialInventory') {
+        if (/,/.test(userText)) {
+          appendAssistantMessage('Usá punto para los decimales, no coma. Ingresá la cantidad de unidades en stock (número mayor o igual a cero).');
+          return;
+        }
+        const initialInventory = Number(userText.replace(/[^0-9.]/g, ''));
+        if (!Number.isFinite(initialInventory) || initialInventory < 0) {
+          appendAssistantMessage('Ingresá un número mayor o igual a cero para el inventario inicial (por ejemplo: 50, 100, 200).');
+          return;
+        }
+        const finalData = { ...problemData, initialInventory };
         setProblemData(finalData);
+
+        // Si I₀ cubre toda la demanda, no hay nada que resolver
+        const totalDemand = finalData.demands.reduce((s, d) => s + d, 0);
+        if (initialInventory >= totalDemand) {
+          setStep('completed');
+          appendAssistantMessage(
+            `Tu inventario inicial de **${initialInventory}** unidades cubre toda la demanda del horizonte ` +
+            `(${totalDemand} unidades en total). No es necesario realizar ningún pedido adicional.`
+          );
+          return;
+        }
+
         setStep('completed');
         appendAssistantMessage('Perfecto, calculando el plan óptimo...');
 
@@ -766,12 +878,13 @@ export const ChatShell = () => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              type: 'solve',
+              type:             'solve',
               sessionId,
-              periodDemands: finalData.demands,
-              hasSetupCost:  finalData.hasOrderCost ?? false,
-              setupCost:     finalData.orderCost,
-              holdingCost:   finalData.holdingCost,
+              periodDemands:    finalData.demands,
+              hasSetupCost:     finalData.hasOrderCost ?? false,
+              setupCost:        finalData.orderCost,
+              holdingCost:      finalData.holdingCost,
+              initialInventory: finalData.initialInventory > 0 ? finalData.initialInventory : undefined,
             }),
           });
           const payload = (await res.json()) as SimpleChatResponse | { error?: string };
@@ -794,7 +907,7 @@ export const ChatShell = () => {
           appendAssistantMessage('¿Tenés alguna pregunta sobre el plan o los costos?');
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Falló el cálculo.');
-          setStep('holdingCost');
+          setStep('initialInventory');
         } finally {
           setIsSubmitting(false);
         }

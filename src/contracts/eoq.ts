@@ -121,9 +121,10 @@ export const NormalizationResultSchema = z.object({
 export type NormalizationResult = z.infer<typeof NormalizationResultSchema>;
 
 const SolverInputSchemaBase = z.object({
-  demandRate: z.number().positive().optional(),
-  periodDemands: DemandScheduleSchema.optional(),
-  holdingCost: z.number().positive(),
+  demandRate:       z.number().positive().optional(),
+  periodDemands:    DemandScheduleSchema.optional(),
+  holdingCost:      z.number().positive(),
+  initialInventory: z.number().nonnegative().optional(),
 });
 
 const ScalarWithSetupSolverInputSchema = SolverInputSchemaBase.extend({
