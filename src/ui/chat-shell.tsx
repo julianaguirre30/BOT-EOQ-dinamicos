@@ -616,6 +616,24 @@ export const ChatShell = () => {
     setConversations(prev => prev.map(c => c.id === activeConvId ? { ...c, label } : c));
   };
 
+  const appendSolveResponse = (solvePayload: SolveResponse) => {
+    setSessionId(solvePayload.sessionId);
+    setStep('completed');
+    const sp: SolvePayload = {
+      sessionId:    solvePayload.sessionId,
+      solverInput:  solvePayload.solverInput,
+      solverOutput: solvePayload.solverOutput,
+    };
+    setLastSolvePayload(sp);
+    setEntries(prev => [...prev, {
+      id: `assistant-${crypto.randomUUID()}`,
+      role: 'assistant' as const,
+      text: solvePayload.message,
+      solvePayload: sp,
+    }]);
+    appendAssistantMessage('¿Tenés alguna pregunta sobre el plan o los costos?');
+  };
+
   // ── Envío directo (desde ejemplos del sidebar) ────────────────────────────────
   const sendDirect = async (text: string) => {
     if (isSubmitting) return;
@@ -647,6 +665,10 @@ export const ChatShell = () => {
         const payload = (await res.json()) as SimpleChatResponse | { error?: string };
         if (!res.ok || !('type' in payload))
           throw new Error('error' in payload && payload.error ? payload.error : 'No se pudo responder.');
+        if (payload.type === 'solve') {
+          appendSolveResponse(payload);
+          return;
+        }
         setEntries(prev => [...prev, {
           id: `assistant-${crypto.randomUUID()}`,
           role: 'assistant' as const,
@@ -713,6 +735,10 @@ export const ChatShell = () => {
           const payload = (await res.json()) as SimpleChatResponse | { error?: string };
           if (!res.ok || !('type' in payload))
             throw new Error('error' in payload && payload.error ? payload.error : 'No se pudo responder.');
+          if (payload.type === 'solve') {
+            appendSolveResponse(payload);
+            return;
+          }
           setEntries(prev => [...prev, {
             id: `assistant-${crypto.randomUUID()}`,
             role: 'assistant' as const,
@@ -816,21 +842,7 @@ export const ChatShell = () => {
           const payload = (await res.json()) as SimpleChatResponse | { error?: string };
           if (!res.ok || !('type' in payload))
             throw new Error('error' in payload && payload.error ? payload.error : 'No se pudo completar el cálculo.');
-          const solvePayload = payload as SolveResponse;
-          setSessionId(solvePayload.sessionId);
-          const sp: SolvePayload = {
-            sessionId:    solvePayload.sessionId,
-            solverInput:  solvePayload.solverInput,
-            solverOutput: solvePayload.solverOutput,
-          };
-          setLastSolvePayload(sp);
-          setEntries(prev => [...prev, {
-            id: `assistant-${crypto.randomUUID()}`,
-            role: 'assistant' as const,
-            text: solvePayload.message,
-            solvePayload: sp,
-          }]);
-          appendAssistantMessage('¿Tenés alguna pregunta sobre el plan o los costos?');
+          appendSolveResponse(payload as SolveResponse);
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Falló el cálculo.');
           setStep('holdingCost');

@@ -3,7 +3,7 @@ import { SolverInput, SolverOutput } from '../../contracts/eoq';
 import { solveExactWithSetup, solveExactNoSetup } from '../../domain/solver/exact-solvers';
 import { evaluateCustomPlan, formatPlanEvaluation } from '../../domain/solver/plan-evaluator';
 import { getSession, saveSession, ConversationMessage } from '../../session/simple-session';
-import { callGroqFollowUp, callGroqGeneric, callGroqExampleWagnerWhitin, RateLimitedError } from '../../infrastructure/llm/groq-followup';
+import { callGroqFollowUp, callGroqGeneric, RateLimitedError } from '../../infrastructure/llm/groq-followup';
 
 // ─── "What-if" marker handling ────────────────────────────────────────────────
 // El LLM emite [WHATIF: q1, q2, q3, ...] al final del mensaje cuando el
@@ -131,6 +131,36 @@ const buildSolverSummary = (input: SolverInput, output: SolverOutput): string =>
   return `Calculé el plan óptimo usando ${model} (Wagner-Whitin). Plan: ${plan}. Costo relevante total: ${totalRelevantCost}.`;
 };
 
+const buildExampleSolveRequest = (): SolveRequest => ({
+  type: 'solve',
+  periodDemands: [10, 20, 15, 30],
+  hasSetupCost: true,
+  setupCost: 100,
+  holdingCost: 5,
+});
+
+const buildSolveResponse = (req: SolveRequest, userText?: string): SolveResponse => {
+  const solverInput  = buildSolverInput(req);
+  const solverOutput = runSolver(solverInput);
+  const sessionId    = req.sessionId ?? crypto.randomUUID();
+  const message      = buildSolverSummary(solverInput, solverOutput);
+
+  const userMessage: ConversationMessage = {
+    role: 'user',
+    content: userText ?? `Resolvé este problema EOQ: ${req.periodDemands.length} período(s), demandas [${req.periodDemands.join(', ')}], costo de almacenamiento ${req.holdingCost}${req.hasSetupCost ? `, costo fijo de pedido ${req.setupCost}` : ', sin costo fijo'}.`,
+  };
+  const assistantMessage: ConversationMessage = { role: 'assistant', content: message };
+
+  saveSession({
+    sessionId,
+    solverInput,
+    solverOutput,
+    history: [userMessage, assistantMessage],
+  });
+
+  return { type: 'solve', sessionId, message, solverInput, solverOutput };
+};
+
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
 const isAskingAboutExample = (text: string): boolean => {
@@ -150,11 +180,12 @@ export const handleSimpleChatRequest = async (body: unknown): Promise<SimpleChat
 
   // ── Generic (preguntas sin sesión activa) ─────────────────────────────────
   if (req.type === 'generic') {
+    if (isAskingAboutExample(req.userText)) {
+      return buildSolveResponse(buildExampleSolveRequest(), req.userText);
+    }
+
     try {
-      // Detectar si pregunta sobre el ejemplo Wagner-Whitin
-      const message = isAskingAboutExample(req.userText)
-        ? await callGroqExampleWagnerWhitin(req.userText)
-        : await callGroqGeneric(req.userText);
+      const message = await callGroqGeneric(req.userText);
       return { type: 'generic', message };
     } catch (error) {
       if (error instanceof RateLimitedError) {
@@ -166,25 +197,7 @@ export const handleSimpleChatRequest = async (body: unknown): Promise<SimpleChat
 
   // ── Solve ─────────────────────────────────────────────────────────────────
   if (req.type === 'solve') {
-    const solverInput  = buildSolverInput(req);
-    const solverOutput = runSolver(solverInput);
-    const sessionId    = req.sessionId ?? crypto.randomUUID();
-    const message      = buildSolverSummary(solverInput, solverOutput);
-
-    const userMessage: ConversationMessage = {
-      role: 'user',
-      content: `Resolvé este problema EOQ: ${req.periodDemands.length} período(s), demandas [${req.periodDemands.join(', ')}], costo de almacenamiento ${req.holdingCost}${req.hasSetupCost ? `, costo fijo de pedido ${req.setupCost}` : ', sin costo fijo'}.`,
-    };
-    const assistantMessage: ConversationMessage = { role: 'assistant', content: message };
-
-    saveSession({
-      sessionId,
-      solverInput,
-      solverOutput,
-      history: [userMessage, assistantMessage],
-    });
-
-    return { type: 'solve', sessionId, message, solverInput, solverOutput };
+    return buildSolveResponse(req);
   }
 
   // ── Follow-up ─────────────────────────────────────────────────────────────
