@@ -639,6 +639,10 @@ export const ChatShell = () => {
   const parseNumberList = (text: string) =>
     text.trim().split(/\s+/).filter(Boolean).map(Number);
 
+  const NEGATIVE_NUMBER_REGEX = /-\s*\d/;
+  const NEGATIVE_NUMBER_MESSAGE = 'Ingresá números válidos, no puede haber cantidades negativas.';
+  const containsNegativeNumber = (text: string) => NEGATIVE_NUMBER_REGEX.test(text);
+
   const updateConversationLabel = (label: string) => {
     if (!activeConvId) return;
     setConversations(prev => prev.map(c => c.id === activeConvId ? { ...c, label } : c));
@@ -787,6 +791,10 @@ export const ChatShell = () => {
       }
 
       if (step === 'periodCount') {
+        if (containsNegativeNumber(userText)) {
+          appendAssistantMessage(NEGATIVE_NUMBER_MESSAGE);
+          return;
+        }
         const periodCount = Number(normalized);
         if (!Number.isInteger(periodCount) || periodCount <= 0) {
           appendAssistantMessage('No entendí ese número. Ingresá la cantidad de períodos como un entero mayor que cero.');
@@ -802,6 +810,10 @@ export const ChatShell = () => {
       if (step === 'demands') {
         if (/,/.test(userText)) {
           appendAssistantMessage(`Usá sólo espacios para separar las demandas y punto para los decimales, por ejemplo: 10.5 20 30.25`);
+          return;
+        }
+        if (containsNegativeNumber(userText)) {
+          appendAssistantMessage(NEGATIVE_NUMBER_MESSAGE);
           return;
         }
         const values = parseNumberList(userText);
@@ -833,6 +845,10 @@ export const ChatShell = () => {
           appendAssistantMessage('Usá punto para los decimales, no coma. Ingresá un valor numérico válido para el costo de pedido.');
           return;
         }
+        if (containsNegativeNumber(userText)) {
+          appendAssistantMessage(NEGATIVE_NUMBER_MESSAGE);
+          return;
+        }
         const orderCost = Number(userText.replace(/[^0-9.\-]/g, ''));
         if (!Number.isFinite(orderCost) || orderCost < 0) {
           appendAssistantMessage('Ingresá un valor numérico válido para el costo de pedido.');
@@ -862,6 +878,10 @@ export const ChatShell = () => {
           appendAssistantMessage('Usá punto para los decimales, no coma. Ingresá un valor numérico positivo para el costo de almacenamiento, por ejemplo: 1.5.');
           return;
         }
+        if (containsNegativeNumber(userText)) {
+          appendAssistantMessage(NEGATIVE_NUMBER_MESSAGE);
+          return;
+        }
         const holdingCost = Number(userText.replace(/[^0-9.]/g, ''));
         if (!Number.isFinite(holdingCost) || holdingCost <= 0) {
           appendAssistantMessage('Ingresá un valor numérico positivo para el costo de almacenamiento (usá punto como separador decimal, ej: 1.5).');
@@ -879,6 +899,10 @@ export const ChatShell = () => {
       if (step === 'initialInventory') {
         if (/,/.test(userText)) {
           appendAssistantMessage('Usá punto para los decimales, no coma. Ingresá la cantidad de unidades en stock (número mayor o igual a cero).');
+          return;
+        }
+        if (containsNegativeNumber(userText)) {
+          appendAssistantMessage(NEGATIVE_NUMBER_MESSAGE);
           return;
         }
         const initialInventory = Number(userText.replace(/[^0-9.]/g, ''));
