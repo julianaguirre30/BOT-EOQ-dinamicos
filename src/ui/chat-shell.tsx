@@ -535,8 +535,7 @@ export const ChatShell = () => {
 
   // ── Resetear / nueva conversación ────────────────────────────────────────────
   const resetConversation = () => {
-    const newId = crypto.randomUUID();
-    setActiveConvId(newId);
+    setActiveConvId(undefined);
     setDraft('');
     setError(null);
     setIsSubmitting(false);
@@ -616,6 +615,13 @@ export const ChatShell = () => {
     setConversations(prev => prev.map(c => c.id === activeConvId ? { ...c, label } : c));
   };
 
+  const ensureConversationRecord = (id: string, label: string) => {
+    setConversations(prev => {
+      if (prev.find(x => x.id === id)) return prev;
+      return [{ id, label: label.slice(0, 40), ts: Date.now() }, ...prev].slice(0, 12);
+    });
+  };
+
   const appendSolveResponse = (solvePayload: SolveResponse) => {
     setSessionId(solvePayload.sessionId);
     setStep('completed');
@@ -646,13 +652,8 @@ export const ChatShell = () => {
       // Crear conversación si no hay activa y transicionar a 'chatting'
       // para habilitar la caja de texto y permitir seguir preguntando.
       const convId = activeConvId ?? crypto.randomUUID();
-      if (!activeConvId) {
-        setActiveConvId(convId);
-        setConversations(prev => {
-          if (prev.find(x => x.id === convId)) return prev;
-          return [{ id: convId, label: text.slice(0, 40), ts: Date.now() }, ...prev].slice(0, 3);
-        });
-      }
+      setActiveConvId(convId);
+      ensureConversationRecord(convId, text);
       if (step === 'welcome') setStep('chatting');
 
       try {
@@ -725,6 +726,10 @@ export const ChatShell = () => {
 
       // ── Chat libre conceptual (sin sesión de problema resuelto) ──────────
       if (step === 'chatting') {
+        const convId = activeConvId ?? crypto.randomUUID();
+        setActiveConvId(convId);
+        ensureConversationRecord(convId, userText);
+
         try {
           setIsSubmitting(true);
           const res = await fetch('/api/chat', {
