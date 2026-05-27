@@ -5,14 +5,8 @@
  *
  * Esta referencia se inyecta en los system prompts del LLM. Está comprimida
  * a propósito para no exceder el límite de tokens por minuto de la API.
- *
- * Importante: no se usan etiquetas internas tipo "[A]" o "[B.1]" porque
- * tienden a filtrarse en las respuestas del modelo.
- */
 
 /**
- * Cita corta de la bibliografía que el LLM debe agregar al final de cada
- * respuesta teórica.
  */
 export const EOQ_BIBLIOGRAPHY_CITATION =
   'Fuente: Taha, Hamdy A. — Investigación de Operaciones, 9a ed.';
@@ -91,26 +85,28 @@ Dos propiedades clave reducen muchísimo la búsqueda:
   El estado y la alternativa toman "sumas concentradas" en lugar de pasos
   unitarios, por eso el árbol es mucho menor que en la PD general.
 
+EJEMPLO PRÁCTICO (Wagner-Whitin):
+Demanda por 4 períodos: D₁=10, D₂=20, D₃=15, D₄=30 unidades.
+Costo fijo por lote: K=100. Costo de retención: h=5 por unidad-período.
+
+Wagner-Whitin evalúa todos los agrupamientos posibles (donde cada lote cubre demanda exacta de periodos contiguos) y elige el de menor costo total.
+
+SOLUCIÓN ÓPTIMA PARA ESTE EJEMPLO:
+Plan de reposición:
+  - Período 1: pedir 10 unidades (cubre solo período 1)
+  - Período 2: pedir 35 unidades (cubre períodos 2–3)
+  - Período 4: pedir 30 unidades (cubre solo período 4)
+
+Costo fijo total: 300 (3 lotes × 100)
+Costo de retención total: 75 (35 unidades en período 2 menos 20 que se usan en período 2 = 15 unidades × 5 × 1 período = 75)
+Costo relevante total: 375
+
+Este es el plan globalmente óptimo que Wagner-Whitin garantiza encontrar.
+
 Wagner-Whitin es **EXACTO** bajo sus supuestos (sin faltantes, costos cóncavos,
 demanda determinística): el plan que devuelve es globalmente óptimo.
 
 Heurística SILVER-MEAL
-Solo aplicable con costo de producción unitario constante e idéntico en todos
-los periodos. Únicamente balancea costos de preparación y retención.
-
-Idea: en el periodo i, agrupar la demanda de los próximos t periodos en un
-solo pedido, minimizando el costo medio por periodo cubierto.
-
-  TC(i, i) = K_i
-  TC(i, t) = TC(i, t−1) + (suma de h_k para k=i..t−1) · D_t,  con t > i
-  TCU(i, t) = TC(i, t) / (t − i + 1)
-
-Procedimiento: arrancar en i=1, encontrar el primer mínimo local t* de
-TCU(i, ·), pedir D_i + … + D_{t*} en el periodo i. Saltar a i = t*+1 y repetir
-hasta n.
-
-Limitación: es miope, no "mira hacia adelante". Puede dar costos sensiblemente
-peores que Wagner-Whitin cuando los K_i / h_i son extremos.
 
 COSTO RELEVANTE TOTAL
 Suma de costos que dependen de la decisión: preparación total + retención

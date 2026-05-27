@@ -501,8 +501,7 @@ export const ChatShell = () => {
 
   // ── Resetear / nueva conversación ────────────────────────────────────────────
   const resetConversation = () => {
-    const newId = crypto.randomUUID();
-    setActiveConvId(newId);
+    setActiveConvId(undefined);
     setDraft('');
     setError(null);
     setIsSubmitting(false);
@@ -645,6 +644,31 @@ export const ChatShell = () => {
     setConversations(prev => prev.map(c => c.id === activeConvId ? { ...c, label } : c));
   };
 
+  const ensureConversationRecord = (id: string, label: string) => {
+    setConversations(prev => {
+      if (prev.find(x => x.id === id)) return prev;
+      return [{ id, label: label.slice(0, 40), ts: Date.now() }, ...prev].slice(0, 12);
+    });
+  };
+
+  const appendSolveResponse = (solvePayload: SolveResponse) => {
+    setSessionId(solvePayload.sessionId);
+    setStep('completed');
+    const sp: SolvePayload = {
+      sessionId:    solvePayload.sessionId,
+      solverInput:  solvePayload.solverInput,
+      solverOutput: solvePayload.solverOutput,
+    };
+    setLastSolvePayload(sp);
+    setEntries(prev => [...prev, {
+      id: `assistant-${crypto.randomUUID()}`,
+      role: 'assistant' as const,
+      text: solvePayload.message,
+      solvePayload: sp,
+    }]);
+    appendAssistantMessage('¿Tenés alguna pregunta sobre el plan o los costos?');
+  };
+
   // ── Envío directo (desde ejemplos del sidebar) ────────────────────────────────
   const sendDirect = async (text: string) => {
     if (isSubmitting) return;
@@ -657,13 +681,8 @@ export const ChatShell = () => {
       // Crear conversación si no hay activa y transicionar a 'chatting'
       // para habilitar la caja de texto y permitir seguir preguntando.
       const convId = activeConvId ?? crypto.randomUUID();
-      if (!activeConvId) {
-        setActiveConvId(convId);
-        setConversations(prev => {
-          if (prev.find(x => x.id === convId)) return prev;
-          return [{ id: convId, label: text.slice(0, 40), ts: Date.now() }, ...prev].slice(0, 3);
-        });
-      }
+      setActiveConvId(convId);
+      ensureConversationRecord(convId, text);
       if (step === 'welcome') setStep('chatting');
 
       try {
@@ -676,6 +695,10 @@ export const ChatShell = () => {
         const payload = (await res.json()) as SimpleChatResponse | { error?: string };
         if (!res.ok || !('type' in payload))
           throw new Error('error' in payload && payload.error ? payload.error : 'No se pudo responder.');
+        if (payload.type === 'solve') {
+          appendSolveResponse(payload);
+          return;
+        }
         setEntries(prev => [...prev, {
           id: `assistant-${crypto.randomUUID()}`,
           role: 'assistant' as const,
@@ -732,6 +755,10 @@ export const ChatShell = () => {
 
       // ── Chat libre conceptual (sin sesión de problema resuelto) ──────────
       if (step === 'chatting') {
+        const convId = activeConvId ?? crypto.randomUUID();
+        setActiveConvId(convId);
+        ensureConversationRecord(convId, userText);
+
         try {
           setIsSubmitting(true);
           const res = await fetch('/api/chat', {
@@ -742,6 +769,10 @@ export const ChatShell = () => {
           const payload = (await res.json()) as SimpleChatResponse | { error?: string };
           if (!res.ok || !('type' in payload))
             throw new Error('error' in payload && payload.error ? payload.error : 'No se pudo responder.');
+          if (payload.type === 'solve') {
+            appendSolveResponse(payload);
+            return;
+          }
           setEntries(prev => [...prev, {
             id: `assistant-${crypto.randomUUID()}`,
             role: 'assistant' as const,
@@ -890,21 +921,7 @@ export const ChatShell = () => {
           const payload = (await res.json()) as SimpleChatResponse | { error?: string };
           if (!res.ok || !('type' in payload))
             throw new Error('error' in payload && payload.error ? payload.error : 'No se pudo completar el cálculo.');
-          const solvePayload = payload as SolveResponse;
-          setSessionId(solvePayload.sessionId);
-          const sp: SolvePayload = {
-            sessionId:    solvePayload.sessionId,
-            solverInput:  solvePayload.solverInput,
-            solverOutput: solvePayload.solverOutput,
-          };
-          setLastSolvePayload(sp);
-          setEntries(prev => [...prev, {
-            id: `assistant-${crypto.randomUUID()}`,
-            role: 'assistant' as const,
-            text: solvePayload.message,
-            solvePayload: sp,
-          }]);
-          appendAssistantMessage('¿Tenés alguna pregunta sobre el plan o los costos?');
+          appendSolveResponse(payload as SolveResponse);
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Falló el cálculo.');
           setStep('initialInventory');

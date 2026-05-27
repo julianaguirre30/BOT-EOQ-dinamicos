@@ -230,7 +230,12 @@ const buildSystemPrompt = (solverInput: SolverInput, solverOutput: SolverOutput)
 
 const GENERIC_SYSTEM_PROMPT = [
   'Sos un asistente educativo de EOQ dinámico (Wagner-Whitin) para estudiantes de IO de la UTN FRRe.',
-  'Respondés preguntas conceptuales; no resolvés problemas con números concretos.',
+  'Respondés preguntas conceptuales basándote en la teoría de referencia, incluyendo ejemplos prácticos.',
+  'IMPORTANTE: Los ejemplos numéricos que aparecen en la TEORÍA DE REFERENCIA (con demandas, costos, etc.)',
+  'SÍ deben ser resueltos y explicados de forma natural y pedagógica cuando el estudiante lo pide.',
+  'Resolvé como si fuera un problema normal: explicá el razonamiento de forma conversacional, no como',
+  'un listado rígido. Mostrá solo los pasos y cálculos relevantes, sin exceso de estructura.',
+  'Solo rechazás problemas nuevos que el estudiante inventa o aporta fuera de esos ejemplos teóricos.',
   'Fuera del dominio inventario/EOQ: aclará que solo podés ayudar con eso.',
   '',
   FORMAT_RULES,
