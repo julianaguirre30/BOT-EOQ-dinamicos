@@ -162,7 +162,7 @@ export const handleSimpleChatRequest = async (body: unknown): Promise<SimpleChat
     };
     const assistantMessage: ConversationMessage = { role: 'assistant', content: message };
 
-    saveSession({
+    await saveSession({
       sessionId,
       solverInput,
       solverOutput,
@@ -173,7 +173,7 @@ export const handleSimpleChatRequest = async (body: unknown): Promise<SimpleChat
   }
 
   // ── Follow-up ─────────────────────────────────────────────────────────────
-  const session = getSession(req.sessionId);
+  const session = await getSession(req.sessionId);
   if (!session) {
     return {
       type: 'followup',
@@ -212,7 +212,7 @@ export const handleSimpleChatRequest = async (body: unknown): Promise<SimpleChat
     { role: 'user',      content: req.userText },
     { role: 'assistant', content: message },
   );
-  saveSession(session);
+  await saveSession(session);
 
   return { type: 'followup', sessionId: req.sessionId, message, suggestsNewProblem };
 };

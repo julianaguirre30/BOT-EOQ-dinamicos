@@ -9,6 +9,7 @@ import { ChatComposer } from './chat-composer';
 import { ChatEntry, SolvePayload } from './types';
 import { ThemeToggle } from './theme-toggle';
 import { PrintableResult, PRINT_STYLES } from './printable-result';
+import { wantsNewProblem } from './new-problem-intent';
 
 // ─── Paletas ──────────────────────────────────────────────────────────────────
 const LIGHT = {
@@ -54,8 +55,8 @@ export const P = getPalette(false); // compat
 
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
-type StoredEntry = { id: string; role: 'user' | 'assistant'; text: string };
-type ConvRecord  = { id: string; label: string; ts: number; entries?: StoredEntry[] };
+type StoredEntry = ChatEntry;
+type ConvRecord  = { id: string; label: string; ts: number; sessionId?: string; entries?: StoredEntry[] };
 
 const QUICK_EXAMPLES = [
   '¿Qué es un modelo EOQ dinámico?',
@@ -508,7 +509,7 @@ export const ChatShell = () => {
   // ── Sincronizar mensajes en el registro activo ───────────────────────────────
   useEffect(() => {
     if (!activeConvId || entries.length === 0) return;
-    const stored: StoredEntry[] = entries.map(e => ({ id: e.id, role: e.role as 'user' | 'assistant', text: e.text }));
+    const stored: StoredEntry[] = entries;
     setConversations(prev => prev.map(c => c.id === activeConvId ? { ...c, entries: stored } : c));
   }, [entries, activeConvId]);
 
@@ -551,8 +552,8 @@ export const ChatShell = () => {
   const handleSelectConversation = (id: string) => {
     const conv = conversations.find(c => c.id === id);
     setActiveConvId(id);
-    setEntries(conv?.entries ? (conv.entries as ChatEntry[]) : initialEntries);
-    setSessionId(undefined);
+    setEntries(conv?.entries ?? initialEntries);
+    setSessionId(conv?.sessionId);
     setError(null);
     setDraft('');
     setStep('completed');
@@ -611,6 +612,9 @@ export const ChatShell = () => {
   const parseNumberList = (text: string) =>
     text.trim().split(/\s+/).filter(Boolean).map(Number);
 
+  const hasSolvedProblemInCurrentConversation = (): boolean =>
+    entries.some((entry) => entry.role === 'assistant' && 'solvePayload' in entry && !!entry.solvePayload);
+
   const updateConversationLabel = (label: string) => {
     if (!activeConvId) return;
     setConversations(prev => prev.map(c => c.id === activeConvId ? { ...c, label } : c));
@@ -657,6 +661,21 @@ export const ChatShell = () => {
       } finally {
         setIsSubmitting(false);
       }
+      return;
+    }
+
+    // Con sesión activa: detectar intención de "nuevo problema" para evitar mezclar contexto
+    if (
+      step === 'completed' &&
+      hasSolvedProblemInCurrentConversation() &&
+      wantsNewProblem(text)
+    ) {
+      setEntries(prev => [...prev, {
+        id: `assistant-${crypto.randomUUID()}`,
+        role: 'assistant' as const,
+        text: 'Parece que querés resolver un problema distinto. Si querés, iniciamos una conversación nueva para no mezclar escenarios.',
+        options: [{ label: '↺ Resolver nuevo problema', value: NEW_PROBLEM_VALUE }],
+      }]);
       return;
     }
 
@@ -818,6 +837,11 @@ export const ChatShell = () => {
             throw new Error('error' in payload && payload.error ? payload.error : 'No se pudo completar el cálculo.');
           const solvePayload = payload as SolveResponse;
           setSessionId(solvePayload.sessionId);
+          if (activeConvId) {
+            setConversations(prev =>
+              prev.map(c => c.id === activeConvId ? { ...c, sessionId: solvePayload.sessionId } : c),
+            );
+          }
           const sp: SolvePayload = {
             sessionId:    solvePayload.sessionId,
             solverInput:  solvePayload.solverInput,
@@ -843,6 +867,13 @@ export const ChatShell = () => {
       if (step === 'completed') {
         if (!sessionId) {
           appendAssistantMessage('No tengo una sesión activa. Iniciá un nuevo problema para continuar.');
+          return;
+        }
+        if (hasSolvedProblemInCurrentConversation() && wantsNewProblem(userText)) {
+          appendAssistantOptions(
+            'Entiendo que querés cambiar de escenario. Para mantener claridad en los resultados, te recomiendo abrir una conversación nueva.',
+            [{ label: '↺ Resolver nuevo problema', value: NEW_PROBLEM_VALUE }],
+          );
           return;
         }
         try {

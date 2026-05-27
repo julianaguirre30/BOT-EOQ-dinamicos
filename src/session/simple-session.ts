@@ -1,3 +1,6 @@
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+
 import { SolverInput, SolverOutput } from '../contracts/eoq';
 
 export type ConversationMessage = { role: 'user' | 'assistant'; content: string };
@@ -9,10 +12,81 @@ export type SimpleSession = {
   history: ConversationMessage[];
 };
 
-const store = new Map<string, SimpleSession>();
+export interface SessionRepository {
+  get(sessionId: string): Promise<SimpleSession | undefined>;
+  set(session: SimpleSession): Promise<void>;
+  delete(sessionId: string): Promise<boolean>;
+  clear(): Promise<void>;
+}
 
-export const getSession = (id: string): SimpleSession | undefined => store.get(id);
+export class FileSessionRepository implements SessionRepository {
+  private readonly cache = new Map<string, SimpleSession>();
 
-export const saveSession = (session: SimpleSession): void => {
-  store.set(session.sessionId, session);
-};
+  constructor(private readonly sessionsDir = path.join(process.cwd(), 'sessions')) {}
+
+  private sessionFilePath(sessionId: string): string {
+    return path.join(this.sessionsDir, `${encodeURIComponent(sessionId)}.json`);
+  }
+
+  private async ensureSessionsDir(): Promise<void> {
+    await mkdir(this.sessionsDir, { recursive: true });
+  }
+
+  async get(sessionId: string): Promise<SimpleSession | undefined> {
+    const cached = this.cache.get(sessionId);
+    if (cached) return structuredClone(cached);
+
+    await this.ensureSessionsDir();
+    const filePath = this.sessionFilePath(sessionId);
+    try {
+      const raw = await readFile(filePath, 'utf-8');
+      const parsed = JSON.parse(raw) as SimpleSession;
+      this.cache.set(sessionId, parsed);
+      return structuredClone(parsed);
+    } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+        return undefined;
+      }
+      throw error;
+    }
+  }
+
+  async set(session: SimpleSession): Promise<void> {
+    await this.ensureSessionsDir();
+    const filePath = this.sessionFilePath(session.sessionId);
+    const serialized = JSON.stringify(session, null, 2);
+    await writeFile(filePath, serialized, 'utf-8');
+    this.cache.set(session.sessionId, structuredClone(session));
+  }
+
+  async delete(sessionId: string): Promise<boolean> {
+    const filePath = this.sessionFilePath(sessionId);
+    this.cache.delete(sessionId);
+    try {
+      await rm(filePath);
+      return true;
+    } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  async clear(): Promise<void> {
+    await this.ensureSessionsDir();
+    const files = await readdir(this.sessionsDir);
+    await Promise.all(
+      files
+        .filter((file) => file.endsWith('.json'))
+        .map((file) => rm(path.join(this.sessionsDir, file))),
+    );
+    this.cache.clear();
+  }
+}
+
+const defaultRepository = new FileSessionRepository();
+
+export const getSession = (id: string): Promise<SimpleSession | undefined> => defaultRepository.get(id);
+
+export const saveSession = (session: SimpleSession): Promise<void> => defaultRepository.set(session);
