@@ -85,7 +85,12 @@ export class FileSessionRepository implements SessionRepository {
   }
 }
 
-const defaultRepository = new FileSessionRepository();
+// En Vercel (serverless) solo /tmp es escribible; en local usamos sessions/ del proyecto.
+const SESSIONS_DIR = process.env.VERCEL
+  ? path.join('/tmp', 'simplex-sessions')
+  : path.join(process.cwd(), 'sessions');
+
+const defaultRepository = new FileSessionRepository(SESSIONS_DIR);
 
 export const getSession = (id: string): Promise<SimpleSession | undefined> => defaultRepository.get(id);
 
