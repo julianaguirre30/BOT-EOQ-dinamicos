@@ -41,12 +41,13 @@ export const GenericRequestSchema = z.object({
 });
 
 export const SolveRequestSchema = z.object({
-  type: z.literal('solve'),
-  sessionId: z.string().optional(),
-  periodDemands: z.array(z.number().finite().nonnegative()).min(1),
-  hasSetupCost: z.boolean(),
-  setupCost: z.number().positive().optional(),
-  holdingCost: z.number().positive(),
+  type:             z.literal('solve'),
+  sessionId:        z.string().optional(),
+  periodDemands:    z.array(z.number().finite().nonnegative()).min(1),
+  hasSetupCost:     z.boolean(),
+  setupCost:        z.number().positive().optional(),
+  holdingCost:      z.number().positive(),
+  initialInventory: z.number().nonnegative().optional(),
 });
 
 export const FollowUpRequestSchema = z.object({
@@ -95,18 +96,20 @@ export type SimpleChatResponse = GenericResponse | SolveResponse | FollowUpRespo
 const buildSolverInput = (req: SolveRequest): SolverInput => {
   if (req.hasSetupCost && req.setupCost !== undefined) {
     return {
-      branch: 'with_setup',
-      variant: 'scalar',
-      periodDemands: req.periodDemands,
-      setupCost: req.setupCost,
-      holdingCost: req.holdingCost,
+      branch:           'with_setup',
+      variant:          'scalar',
+      periodDemands:    req.periodDemands,
+      setupCost:        req.setupCost,
+      holdingCost:      req.holdingCost,
+      initialInventory: req.initialInventory,
     };
   }
   return {
-    branch: 'no_setup',
-    variant: 'scalar',
-    periodDemands: req.periodDemands,
-    holdingCost: req.holdingCost,
+    branch:           'no_setup',
+    variant:          'scalar',
+    periodDemands:    req.periodDemands,
+    holdingCost:      req.holdingCost,
+    initialInventory: req.initialInventory,
   };
 };
 
@@ -131,13 +134,104 @@ const buildSolverSummary = (input: SolverInput, output: SolverOutput): string =>
   return `Calculé el plan óptimo usando ${model} (Wagner-Whitin). Plan: ${plan}. Costo relevante total: ${totalRelevantCost}.`;
 };
 
+const buildExampleSolverSummary = (input: SolverInput, output: SolverOutput): string => {
+  const demands = input.periodDemands ?? [];
+  const demandIntro = demands.map((demand, index) => `x${index + 1}=${demand}`).join(', ');
+  const plan = output.policy.replenishmentPlan
+    .map((p) =>
+      p.period === p.coversThroughPeriod
+        ? `período ${p.period}: ${p.quantity} unidades`
+        : `período ${p.period}: ${p.quantity} unidades (cubre hasta período ${p.coversThroughPeriod})`,
+    )
+    .join(', ');
+  const { totalRelevantCost } = output.mathematicalArtifacts.costBreakdown;
+  const setupCost = input.branch === 'with_setup' && input.variant === 'scalar' ? input.setupCost : 0;
+
+  return [
+    `Claro. Supongamos un caso sencillo de ${demands.length} períodos, con demandas ${demandIntro}.`,
+    `Cada pedido tiene un costo fijo de ${setupCost} y mantener inventario cuesta ${input.holdingCost} por unidad y período.`,
+    `Con esos datos, Wagner-Whitin indica que el plan óptimo es pedir ${plan}.`,
+    `El costo relevante total de esa política es ${totalRelevantCost}.`,
+  ].join('\n\n');
+};
+
+const buildExampleSolveRequest = (): SolveRequest => ({
+  type: 'solve',
+  periodDemands: [10, 20, 15, 30],
+  hasSetupCost: true,
+  setupCost: 100,
+  holdingCost: 5,
+});
+
+const buildSolveResponse = async (
+  req: SolveRequest,
+  userText?: string,
+  options?: { exampleIntro?: boolean },
+): Promise<SolveResponse> => {
+  const solverInput  = buildSolverInput(req);
+  const solverOutput = runSolver(solverInput);
+  const sessionId    = req.sessionId ?? crypto.randomUUID();
+  const message      = options?.exampleIntro
+    ? buildExampleSolverSummary(solverInput, solverOutput)
+    : buildSolverSummary(solverInput, solverOutput);
+
+  const userMessage: ConversationMessage = {
+    role: 'user',
+    content: userText ?? `Resolvé este problema EOQ: ${req.periodDemands.length} período(s), demandas [${req.periodDemands.join(', ')}], costo de almacenamiento ${req.holdingCost}${req.hasSetupCost ? `, costo fijo de pedido ${req.setupCost}` : ', sin costo fijo'}.`,
+  };
+  const assistantMessage: ConversationMessage = { role: 'assistant', content: message };
+
+  await saveSession({
+    sessionId,
+    solverInput,
+    solverOutput,
+    history: [userMessage, assistantMessage],
+  });
+
+  return { type: 'solve', sessionId, message, solverInput, solverOutput };
+};
+
 // ─── Handler ──────────────────────────────────────────────────────────────────
+
+const isAskingAboutExample = (text: string): boolean => {
+  const normalized = text.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+  return (
+    normalized.includes('wagner') ||
+    normalized.includes('ejemplo') ||
+    normalized.includes('ejemplo practico') ||
+    normalized.includes('resuelve el ejemplo') ||
+    (normalized.includes('demanda') && normalized.includes('10') && normalized.includes('20')) ||
+    normalized.includes('demandas 10')
+  );
+};
+
+const isAskingForAnotherExample = (text: string): boolean => {
+  const normalized = text.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+  return (
+    normalized.includes('otro ejemplo') ||
+    normalized.includes('segundo ejemplo') ||
+    normalized.includes('nuevo ejemplo') ||
+    normalized.includes('mas ejemplos') ||
+    normalized.includes('dame otro')
+  );
+};
 
 export const handleSimpleChatRequest = async (body: unknown): Promise<SimpleChatResponse> => {
   const req = SimpleChatRequestSchema.parse(body);
 
   // ── Generic (preguntas sin sesión activa) ─────────────────────────────────
   if (req.type === 'generic') {
+    if (isAskingForAnotherExample(req.userText)) {
+      return {
+        type: 'generic',
+        message: 'Para ver otro caso, lo mejor es que ingreses los datos de un nuevo problema. Así lo resolvemos paso a paso con tus períodos, demandas y costos.',
+      };
+    }
+
+    if (isAskingAboutExample(req.userText)) {
+      return await buildSolveResponse(buildExampleSolveRequest(), req.userText, { exampleIntro: true });
+    }
+
     try {
       const message = await callGroqGeneric(req.userText);
       return { type: 'generic', message };
@@ -151,25 +245,7 @@ export const handleSimpleChatRequest = async (body: unknown): Promise<SimpleChat
 
   // ── Solve ─────────────────────────────────────────────────────────────────
   if (req.type === 'solve') {
-    const solverInput  = buildSolverInput(req);
-    const solverOutput = runSolver(solverInput);
-    const sessionId    = req.sessionId ?? crypto.randomUUID();
-    const message      = buildSolverSummary(solverInput, solverOutput);
-
-    const userMessage: ConversationMessage = {
-      role: 'user',
-      content: `Resolvé este problema EOQ: ${req.periodDemands.length} período(s), demandas [${req.periodDemands.join(', ')}], costo de almacenamiento ${req.holdingCost}${req.hasSetupCost ? `, costo fijo de pedido ${req.setupCost}` : ', sin costo fijo'}.`,
-    };
-    const assistantMessage: ConversationMessage = { role: 'assistant', content: message };
-
-    await saveSession({
-      sessionId,
-      solverInput,
-      solverOutput,
-      history: [userMessage, assistantMessage],
-    });
-
-    return { type: 'solve', sessionId, message, solverInput, solverOutput };
+    return await buildSolveResponse(req);
   }
 
   // ── Follow-up ─────────────────────────────────────────────────────────────
@@ -179,6 +255,15 @@ export const handleSimpleChatRequest = async (body: unknown): Promise<SimpleChat
       type: 'followup',
       sessionId: req.sessionId,
       message: 'No encontré la sesión. Por favor iniciá un nuevo problema.',
+      suggestsNewProblem: true,
+    };
+  }
+
+  if (isAskingForAnotherExample(req.userText)) {
+    return {
+      type: 'followup',
+      sessionId: req.sessionId,
+      message: 'Podemos hacer otro caso, pero conviene cargarlo como un problema nuevo. Ingresá los períodos, demandas y costos, y te lo voy resolviendo paso a paso.',
       suggestsNewProblem: true,
     };
   }

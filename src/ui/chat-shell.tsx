@@ -281,23 +281,25 @@ const Sidebar = ({
 };
 
 // ─── Wizard Stepper ───────────────────────────────────────────────────────────
-type WizardStep = 'periodCount' | 'demands' | 'hasOrderCost' | 'orderCost' | 'holdingCost' | 'completed';
+type WizardStep = 'periodCount' | 'demands' | 'hasOrderCost' | 'orderCost' | 'holdingCost' | 'hasInitialInventory' | 'initialInventory' | 'completed';
 
 const WIZARD_STEPS_WITH_SETUP: { key: WizardStep; label: string }[] = [
-  { key: 'periodCount',  label: 'Períodos'       },
-  { key: 'demands',      label: 'Demandas'        },
-  { key: 'hasOrderCost', label: 'Tipo de costo'   },
-  { key: 'orderCost',    label: 'Costo fijo'      },
-  { key: 'holdingCost',  label: 'Almacenamiento'  },
-  { key: 'completed',    label: 'Resultado'        },
+  { key: 'periodCount',          label: 'Períodos'       },
+  { key: 'demands',              label: 'Demandas'        },
+  { key: 'hasOrderCost',         label: 'Tipo de costo'   },
+  { key: 'orderCost',            label: 'Costo fijo'      },
+  { key: 'holdingCost',          label: 'Almacenamiento'  },
+  { key: 'hasInitialInventory',  label: 'Stock inicial'   },
+  { key: 'completed',            label: 'Resultado'        },
 ];
 
 const WIZARD_STEPS_NO_SETUP: { key: WizardStep; label: string }[] = [
-  { key: 'periodCount',  label: 'Períodos'       },
-  { key: 'demands',      label: 'Demandas'        },
-  { key: 'hasOrderCost', label: 'Tipo de costo'   },
-  { key: 'holdingCost',  label: 'Almacenamiento'  },
-  { key: 'completed',    label: 'Resultado'        },
+  { key: 'periodCount',          label: 'Períodos'       },
+  { key: 'demands',              label: 'Demandas'        },
+  { key: 'hasOrderCost',         label: 'Tipo de costo'   },
+  { key: 'holdingCost',          label: 'Almacenamiento'  },
+  { key: 'hasInitialInventory',  label: 'Stock inicial'   },
+  { key: 'completed',            label: 'Resultado'        },
 ];
 
 const WizardStepper = ({
@@ -309,10 +311,12 @@ const WizardStepper = ({
   isMobile?: boolean;
 }) => {
   const WIZARD_STEPS = hasOrderCost === false ? WIZARD_STEPS_NO_SETUP : WIZARD_STEPS_WITH_SETUP;
-  const wizardKeys: WizardStep[] = ['periodCount', 'demands', 'hasOrderCost', 'orderCost', 'holdingCost', 'completed'];
+  const wizardKeys: WizardStep[] = ['periodCount', 'demands', 'hasOrderCost', 'orderCost', 'holdingCost', 'hasInitialInventory', 'initialInventory', 'completed'];
   if (!wizardKeys.includes(step as WizardStep)) return null;
 
-  const currentIdx = WIZARD_STEPS.findIndex(s => s.key === step);
+  // 'initialInventory' (cantidad) se muestra bajo el mismo paso que 'hasInitialInventory'
+  const displayStep = step === 'initialInventory' ? 'hasInitialInventory' : step;
+  const currentIdx = WIZARD_STEPS.findIndex(s => s.key === displayStep);
   const palette = isDark ? DARK : LIGHT;
 
   return (
@@ -400,11 +404,12 @@ const WizardStepper = ({
 const initialEntries: ChatEntry[] = [];
 
 const initialProblemData = {
-  periodCount:  0,
-  demands:      [] as number[],
-  hasOrderCost: undefined as boolean | undefined,
-  orderCost:    undefined as number | undefined,
-  holdingCost:  undefined as number | undefined,
+  periodCount:       0,
+  demands:           [] as number[],
+  hasOrderCost:      undefined as boolean | undefined,
+  orderCost:         undefined as number | undefined,
+  holdingCost:       undefined as number | undefined,
+  initialInventory:  0,
 };
 
 export const ChatShell = () => {
@@ -414,7 +419,7 @@ export const ChatShell = () => {
   const [error,               setError]               = useState<string | null>(null);
   const [isSubmitting,        setIsSubmitting]        = useState(false);
   const [pendingResetProblem, setPendingResetProblem] = useState(false);
-  const [step,                setStep]                = useState<'welcome' | 'chatting' | 'periodCount' | 'demands' | 'hasOrderCost' | 'orderCost' | 'holdingCost' | 'completed'>('welcome');
+  const [step,                setStep]                = useState<'welcome' | 'chatting' | 'periodCount' | 'demands' | 'hasOrderCost' | 'orderCost' | 'holdingCost' | 'hasInitialInventory' | 'initialInventory' | 'completed'>('welcome');
   const [problemData,         setProblemData]         = useState(initialProblemData);
   const [sidebarCollapsed,    setSidebarCollapsed]    = useState(false);
   const [conversations,       setConversations]       = useState<ConvRecord[]>([]);
@@ -426,62 +431,23 @@ export const ChatShell = () => {
 
   const feedViewportRef     = useRef<HTMLDivElement | null>(null);
   const shouldAutoFollowRef = useRef(true);
-  const shellRef            = useRef<HTMLDivElement | null>(null);
 
   // ── Detección de mobile — solo reacciona a cambios de ANCHO ─────────────────
-  // El teclado virtual cambia el alto pero NO el ancho.
-  // Ignorar eventos resize provocados por el teclado evita re-renders innecesarios
-  // que causaban el layout shift visible en mobile.
+  // El teclado virtual cambia el alto pero NO el ancho → ignoramos esos eventos
+  // para no disparar re-renders innecesarios mientras el teclado está abierto.
   useEffect(() => {
     let lastWidth = window.innerWidth;
     const check = () => {
       const w = window.innerWidth;
-      if (w === lastWidth) return; // solo alto cambió → teclado abierto/cerrado, ignorar
+      if (w === lastWidth) return;
       lastWidth = w;
       const mobile = w < 680;
       setIsMobile(mobile);
       if (!mobile) setMobileSidebarOpen(false);
     };
-    // Evaluación inicial
     setIsMobile(window.innerWidth < 680);
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
-  }, []);
-
-  // ── visualViewport API — ajuste directo de DOM sin re-render ─────────────────
-  // Cuando el teclado abre, el visual viewport encoge.
-  // Actualizamos top + height del contenedor directamente en el DOM
-  // para que el composer suba con el teclado sin jumpear el layout.
-  // Funciona en iOS Safari 13+ y Chrome Android 61+.
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-
-    const update = () => {
-      const el = shellRef.current;
-      if (!el) return;
-      // offsetTop: cuánto desplazó Safari el visual viewport desde arriba
-      el.style.top    = `${vv.offsetTop}px`;
-      el.style.height = `${vv.height}px`;
-      el.style.bottom = 'auto'; // height controla el tamaño, no bottom
-    };
-
-    const reset = () => {
-      const el = shellRef.current;
-      if (!el) return;
-      el.style.top    = '';
-      el.style.height = '';
-      el.style.bottom = '';
-    };
-
-    vv.addEventListener('resize', update);
-    vv.addEventListener('scroll', update);
-
-    return () => {
-      vv.removeEventListener('resize', update);
-      vv.removeEventListener('scroll', update);
-      reset();
-    };
   }, []);
 
   // ── localStorage: cargar al montar ──────────────────────────────────────────
@@ -536,8 +502,7 @@ export const ChatShell = () => {
 
   // ── Resetear / nueva conversación ────────────────────────────────────────────
   const resetConversation = () => {
-    const newId = crypto.randomUUID();
-    setActiveConvId(newId);
+    setActiveConvId(undefined);
     setDraft('');
     setError(null);
     setIsSubmitting(false);
@@ -599,14 +564,63 @@ export const ChatShell = () => {
   // ── Opciones sí/no ────────────────────────────────────────────────────────────
   const handleOptionSelect = (value: string) => {
     if (value === NEW_PROBLEM_VALUE) { startFreshProblem(); return; }
-    if (step !== 'hasOrderCost') return;
+
     setEntries(prev => [...prev, { id: `user-${crypto.randomUUID()}`, role: 'user' as const, text: value }]);
-    const yes = /^(s|si|sí|yes|y)$/i.test(value.toLowerCase().trim());
-    const no  = /^(n|no)$/i.test(value.toLowerCase().trim());
-    if (!yes && !no) { appendAssistantMessage('Respondé con sí o no. ¿El problema tiene costo de pedido fijo?'); return; }
-    setProblemData(prev => ({ ...prev, hasOrderCost: yes }));
-    if (yes) { setStep('orderCost');    appendAssistantMessage('Ingresá el costo de pedido fijo.'); }
-    else     { setStep('holdingCost'); appendAssistantMessage('Perfecto. Ahora ingresá el costo de almacenamiento por unidad y período.'); }
+
+    if (step === 'hasOrderCost') {
+      const yes = /^(s|si|sí|yes|y)$/i.test(value.toLowerCase().trim());
+      const no  = /^(n|no)$/i.test(value.toLowerCase().trim());
+      if (!yes && !no) { appendAssistantMessage('Respondé con sí o no. ¿El problema tiene costo de pedido fijo?'); return; }
+      setProblemData(prev => ({ ...prev, hasOrderCost: yes }));
+      if (yes) { setStep('orderCost');    appendAssistantMessage('Ingresá el costo de pedido fijo.'); }
+      else     { setStep('holdingCost'); appendAssistantMessage('Perfecto. Ahora ingresá el costo de almacenamiento por unidad y período.'); }
+      return;
+    }
+
+    if (step === 'hasInitialInventory') {
+      const yes = /^(s|si|sí|yes|y)$/i.test(value.toLowerCase().trim());
+      const no  = /^(n|no)$/i.test(value.toLowerCase().trim());
+      if (!yes && !no) { appendAssistantMessage('Respondé con sí o no. ¿Tenés stock disponible antes del período 1?'); return; }
+
+      if (yes) {
+        setStep('initialInventory');
+        appendAssistantMessage('¿Cuántas unidades tenés en stock al inicio del período 1?');
+        return;
+      }
+
+      // No hay inventario inicial → resolvemos directamente con I₀ = 0
+      const finalData = { ...problemData, initialInventory: 0 };
+      setProblemData(finalData);
+      setStep('completed');
+      appendAssistantMessage('Perfecto, calculando el plan óptimo...');
+
+      void (async () => {
+        try {
+          setIsSubmitting(true);
+          const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type:          'solve',
+              sessionId,
+              periodDemands: finalData.demands,
+              hasSetupCost:  finalData.hasOrderCost ?? false,
+              setupCost:     finalData.orderCost,
+              holdingCost:   finalData.holdingCost,
+            }),
+          });
+          const payload = (await res.json()) as SimpleChatResponse | { error?: string };
+          if (!res.ok || !('type' in payload))
+            throw new Error('error' in payload && payload.error ? payload.error : 'No se pudo completar el cálculo.');
+          appendSolveResponse(payload as SolveResponse);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Falló el cálculo.');
+          setStep('hasInitialInventory');
+        } finally {
+          setIsSubmitting(false);
+        }
+      })();
+    }
   };
 
   const parseNumberList = (text: string) =>
@@ -615,9 +629,45 @@ export const ChatShell = () => {
   const hasSolvedProblemInCurrentConversation = (): boolean =>
     entries.some((entry) => entry.role === 'assistant' && 'solvePayload' in entry && !!entry.solvePayload);
 
+  const NEGATIVE_NUMBER_REGEX = /-\s*\d/;
+  const NEGATIVE_DEMAND_MESSAGE = 'Ingresá números válidos, no pueden existir demandas negativas.';
+  const NEGATIVE_PERIOD_MESSAGE = 'Ingresá números válidos, no pueden existir períodos negativos.';
+  const NEGATIVE_NUMBER_MESSAGE = 'Ingresá números válidos, no pueden existir valores negativos.';
+  const containsNegativeNumber = (text: string) => NEGATIVE_NUMBER_REGEX.test(text);
+
   const updateConversationLabel = (label: string) => {
     if (!activeConvId) return;
     setConversations(prev => prev.map(c => c.id === activeConvId ? { ...c, label } : c));
+  };
+
+  const ensureConversationRecord = (id: string, label: string) => {
+    setConversations(prev => {
+      if (prev.find(x => x.id === id)) return prev;
+      return [{ id, label: label.slice(0, 40), ts: Date.now() }, ...prev].slice(0, 12);
+    });
+  };
+
+  const appendSolveResponse = (solvePayload: SolveResponse) => {
+    setSessionId(solvePayload.sessionId);
+    if (activeConvId) {
+      setConversations(prev =>
+        prev.map(c => c.id === activeConvId ? { ...c, sessionId: solvePayload.sessionId } : c),
+      );
+    }
+    setStep('completed');
+    const sp: SolvePayload = {
+      sessionId:    solvePayload.sessionId,
+      solverInput:  solvePayload.solverInput,
+      solverOutput: solvePayload.solverOutput,
+    };
+    setLastSolvePayload(sp);
+    setEntries(prev => [...prev, {
+      id: `assistant-${crypto.randomUUID()}`,
+      role: 'assistant' as const,
+      text: solvePayload.message,
+      solvePayload: sp,
+    }]);
+    appendAssistantMessage('¿Tenés alguna pregunta sobre el plan o los costos?');
   };
 
   // ── Envío directo (desde ejemplos del sidebar) ────────────────────────────────
@@ -632,13 +682,8 @@ export const ChatShell = () => {
       // Crear conversación si no hay activa y transicionar a 'chatting'
       // para habilitar la caja de texto y permitir seguir preguntando.
       const convId = activeConvId ?? crypto.randomUUID();
-      if (!activeConvId) {
-        setActiveConvId(convId);
-        setConversations(prev => {
-          if (prev.find(x => x.id === convId)) return prev;
-          return [{ id: convId, label: text.slice(0, 40), ts: Date.now() }, ...prev].slice(0, 3);
-        });
-      }
+      setActiveConvId(convId);
+      ensureConversationRecord(convId, text);
       if (step === 'welcome') setStep('chatting');
 
       try {
@@ -651,6 +696,10 @@ export const ChatShell = () => {
         const payload = (await res.json()) as SimpleChatResponse | { error?: string };
         if (!res.ok || !('type' in payload))
           throw new Error('error' in payload && payload.error ? payload.error : 'No se pudo responder.');
+        if (payload.type === 'solve') {
+          appendSolveResponse(payload);
+          return;
+        }
         setEntries(prev => [...prev, {
           id: `assistant-${crypto.randomUUID()}`,
           role: 'assistant' as const,
@@ -722,6 +771,10 @@ export const ChatShell = () => {
 
       // ── Chat libre conceptual (sin sesión de problema resuelto) ──────────
       if (step === 'chatting') {
+        const convId = activeConvId ?? crypto.randomUUID();
+        setActiveConvId(convId);
+        ensureConversationRecord(convId, userText);
+
         try {
           setIsSubmitting(true);
           const res = await fetch('/api/chat', {
@@ -732,6 +785,10 @@ export const ChatShell = () => {
           const payload = (await res.json()) as SimpleChatResponse | { error?: string };
           if (!res.ok || !('type' in payload))
             throw new Error('error' in payload && payload.error ? payload.error : 'No se pudo responder.');
+          if (payload.type === 'solve') {
+            appendSolveResponse(payload);
+            return;
+          }
           setEntries(prev => [...prev, {
             id: `assistant-${crypto.randomUUID()}`,
             role: 'assistant' as const,
@@ -746,6 +803,10 @@ export const ChatShell = () => {
       }
 
       if (step === 'periodCount') {
+        if (containsNegativeNumber(userText)) {
+          appendAssistantMessage(NEGATIVE_PERIOD_MESSAGE);
+          return;
+        }
         const periodCount = Number(normalized);
         if (!Number.isInteger(periodCount) || periodCount <= 0) {
           appendAssistantMessage('No entendí ese número. Ingresá la cantidad de períodos como un entero mayor que cero.');
@@ -761,6 +822,10 @@ export const ChatShell = () => {
       if (step === 'demands') {
         if (/,/.test(userText)) {
           appendAssistantMessage(`Usá sólo espacios para separar las demandas y punto para los decimales, por ejemplo: 10.5 20 30.25`);
+          return;
+        }
+        if (containsNegativeNumber(userText)) {
+          appendAssistantMessage(NEGATIVE_DEMAND_MESSAGE);
           return;
         }
         const values = parseNumberList(userText);
@@ -792,6 +857,10 @@ export const ChatShell = () => {
           appendAssistantMessage('Usá punto para los decimales, no coma. Ingresá un valor numérico válido para el costo de pedido.');
           return;
         }
+        if (containsNegativeNumber(userText)) {
+          appendAssistantMessage(NEGATIVE_NUMBER_MESSAGE);
+          return;
+        }
         const orderCost = Number(userText.replace(/[^0-9.\-]/g, ''));
         if (!Number.isFinite(orderCost) || orderCost < 0) {
           appendAssistantMessage('Ingresá un valor numérico válido para el costo de pedido.');
@@ -803,9 +872,26 @@ export const ChatShell = () => {
         return;
       }
 
+      if (step === 'hasInitialInventory') {
+        const yes = /^(s|si|sí|yes|y)$/i.test(normalized);
+        const no  = /^(n|no)$/i.test(normalized);
+        if (!yes && !no) { appendAssistantMessage('Respondé con sí o no. ¿Tenés stock disponible antes del período 1?'); return; }
+        if (yes) {
+          setStep('initialInventory');
+          appendAssistantMessage('¿Cuántas unidades tenés en stock al inicio del período 1?');
+        } else {
+          handleOptionSelect('no');
+        }
+        return;
+      }
+
       if (step === 'holdingCost') {
         if (/,/.test(userText)) {
           appendAssistantMessage('Usá punto para los decimales, no coma. Ingresá un valor numérico positivo para el costo de almacenamiento, por ejemplo: 1.5.');
+          return;
+        }
+        if (containsNegativeNumber(userText)) {
+          appendAssistantMessage(NEGATIVE_NUMBER_MESSAGE);
           return;
         }
         const holdingCost = Number(userText.replace(/[^0-9.]/g, ''));
@@ -813,8 +899,43 @@ export const ChatShell = () => {
           appendAssistantMessage('Ingresá un valor numérico positivo para el costo de almacenamiento (usá punto como separador decimal, ej: 1.5).');
           return;
         }
-        const finalData = { ...problemData, holdingCost };
+        setProblemData(prev => ({ ...prev, holdingCost }));
+        setStep('hasInitialInventory');
+        appendAssistantOptions('¿Tenés stock disponible antes del período 1?', [
+          { label: 'Sí', value: 'sí' },
+          { label: 'No', value: 'no' },
+        ]);
+        return;
+      }
+
+      if (step === 'initialInventory') {
+        if (/,/.test(userText)) {
+          appendAssistantMessage('Usá punto para los decimales, no coma. Ingresá la cantidad de unidades en stock (número mayor o igual a cero).');
+          return;
+        }
+        if (containsNegativeNumber(userText)) {
+          appendAssistantMessage(NEGATIVE_NUMBER_MESSAGE);
+          return;
+        }
+        const initialInventory = Number(userText.replace(/[^0-9.]/g, ''));
+        if (!Number.isFinite(initialInventory) || initialInventory < 0) {
+          appendAssistantMessage('Ingresá un número mayor o igual a cero para el inventario inicial (por ejemplo: 50, 100, 200).');
+          return;
+        }
+        const finalData = { ...problemData, initialInventory };
         setProblemData(finalData);
+
+        // Si I₀ cubre toda la demanda, no hay nada que resolver
+        const totalDemand = finalData.demands.reduce((s, d) => s + d, 0);
+        if (initialInventory >= totalDemand) {
+          setStep('completed');
+          appendAssistantMessage(
+            `Tu inventario inicial de **${initialInventory}** unidades cubre toda la demanda del horizonte ` +
+            `(${totalDemand} unidades en total). No es necesario realizar ningún pedido adicional.`
+          );
+          return;
+        }
+
         setStep('completed');
         appendAssistantMessage('Perfecto, calculando el plan óptimo...');
 
@@ -824,40 +945,22 @@ export const ChatShell = () => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              type: 'solve',
+              type:             'solve',
               sessionId,
-              periodDemands: finalData.demands,
-              hasSetupCost:  finalData.hasOrderCost ?? false,
-              setupCost:     finalData.orderCost,
-              holdingCost:   finalData.holdingCost,
+              periodDemands:    finalData.demands,
+              hasSetupCost:     finalData.hasOrderCost ?? false,
+              setupCost:        finalData.orderCost,
+              holdingCost:      finalData.holdingCost,
+              initialInventory: finalData.initialInventory > 0 ? finalData.initialInventory : undefined,
             }),
           });
           const payload = (await res.json()) as SimpleChatResponse | { error?: string };
           if (!res.ok || !('type' in payload))
             throw new Error('error' in payload && payload.error ? payload.error : 'No se pudo completar el cálculo.');
-          const solvePayload = payload as SolveResponse;
-          setSessionId(solvePayload.sessionId);
-          if (activeConvId) {
-            setConversations(prev =>
-              prev.map(c => c.id === activeConvId ? { ...c, sessionId: solvePayload.sessionId } : c),
-            );
-          }
-          const sp: SolvePayload = {
-            sessionId:    solvePayload.sessionId,
-            solverInput:  solvePayload.solverInput,
-            solverOutput: solvePayload.solverOutput,
-          };
-          setLastSolvePayload(sp);
-          setEntries(prev => [...prev, {
-            id: `assistant-${crypto.randomUUID()}`,
-            role: 'assistant' as const,
-            text: solvePayload.message,
-            solvePayload: sp,
-          }]);
-          appendAssistantMessage('¿Tenés alguna pregunta sobre el plan o los costos?');
+          appendSolveResponse(payload as SolveResponse);
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Falló el cálculo.');
-          setStep('holdingCost');
+          setStep('initialInventory');
         } finally {
           setIsSubmitting(false);
         }
@@ -923,13 +1026,14 @@ export const ChatShell = () => {
   return (
     <>
     <div
-      ref={shellRef}
+      className="simplex-shell"
       style={{
         position: 'fixed',
-        // Propiedades explícitas (no shorthand `inset`) para que el efecto
-        // visualViewport pueda sobrescribir top/height/bottom individualmente
-        // sin conflicto con el shorthand.
-        top: 0, left: 0, right: 0, bottom: 0,
+        top: 0, left: 0, right: 0,
+        // height se controla via CSS class (.simplex-shell) usando 100dvh.
+        // dvh = dynamic viewport height: achica automáticamente cuando el
+        // teclado virtual aparece en iOS 15.4+ y Chrome 108+.
+        // Sin JavaScript, sin conflictos con re-renders de React.
         display: 'flex',
         background: palette.pageBg,
         color: palette.text,
@@ -940,6 +1044,10 @@ export const ChatShell = () => {
     >
       {/* Ambient orbs */}
       <style>{`
+        /* Shell height: 100dvh achica con teclado virtual (iOS/Android).
+           Fallback 100vh para browsers muy viejos que no soporten dvh. */
+        .simplex-shell { height: 100vh; height: 100dvh; }
+
         @keyframes orbFloat1 { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(40px,-50px) scale(1.06)} 66%{transform:translate(-25px,30px) scale(0.94)} }
         @keyframes orbFloat2 { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(-35px,40px) scale(1.08)} 66%{transform:translate(30px,-20px) scale(0.93)} }
         @keyframes orbFloat3 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(20px,35px) scale(1.04)} }

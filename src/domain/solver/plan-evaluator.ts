@@ -54,7 +54,7 @@ export const evaluateCustomPlan = (
       ? (solverInput as Extract<SolverInput, { branch: 'with_setup'; variant: 'scalar' }>).setupCost
       : 0;
 
-  let onHand = 0;
+  let onHand = solverInput.initialInventory ?? 0;
   const endingInventoryByPeriod: number[] = [];
   let holdingCostTotal = 0;
   let numberOfOrders = 0;

@@ -49,6 +49,10 @@ const getPlaceholder = (step?: string, disabled?: boolean): string => {
       return 'Ingresa el costo de pedido fijo...';
     case 'holdingCost':
       return 'Ingresa el costo de almacenamiento...';
+    case 'hasInitialInventory':
+      return 'Seleccioná Sí o No...';
+    case 'initialInventory':
+      return 'Ingresá la cantidad de unidades en stock...';
     case 'completed':
       return 'Ingresa lo que quieras que te explique sobre el plan...';
     default:
