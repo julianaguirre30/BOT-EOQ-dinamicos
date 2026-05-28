@@ -580,11 +580,11 @@ export const ChatShell = () => {
     if (step === 'hasInitialInventory') {
       const yes = /^(s|si|sí|yes|y)$/i.test(value.toLowerCase().trim());
       const no  = /^(n|no)$/i.test(value.toLowerCase().trim());
-      if (!yes && !no) { appendAssistantMessage('Respondé con sí o no. ¿Tenés stock disponible antes del período 1?'); return; }
+      if (!yes && !no) { appendAssistantMessage('Respondé con sí o no. ¿Tenés mercadería disponible actualmente?'); return; }
 
       if (yes) {
         setStep('initialInventory');
-        appendAssistantMessage('¿Cuántas unidades tenés en stock al inicio del período 1?');
+        appendAssistantMessage('¿Cuántas unidades tenés disponibles?');
         return;
       }
 
@@ -884,10 +884,10 @@ export const ChatShell = () => {
       if (step === 'hasInitialInventory') {
         const yes = /^(s|si|sí|yes|y)$/i.test(normalized);
         const no  = /^(n|no)$/i.test(normalized);
-        if (!yes && !no) { appendAssistantMessage('Respondé con sí o no. ¿Tenés stock disponible antes del período 1?'); return; }
+        if (!yes && !no) { appendAssistantMessage('Respondé con sí o no. ¿Tenés mercadería disponible actualmente?'); return; }
         if (yes) {
           setStep('initialInventory');
-          appendAssistantMessage('¿Cuántas unidades tenés en stock al inicio del período 1?');
+          appendAssistantMessage('¿Cuántas unidades tenés disponibles?');
         } else {
           handleOptionSelect('no');
         }
@@ -910,7 +910,7 @@ export const ChatShell = () => {
         }
         setProblemData(prev => ({ ...prev, holdingCost }));
         setStep('hasInitialInventory');
-        appendAssistantOptions('¿Tenés stock disponible antes del período 1?', [
+        appendAssistantOptions('¿Tenés mercadería disponible actualmente?', [
           { label: 'Sí', value: 'sí' },
           { label: 'No', value: 'no' },
         ]);

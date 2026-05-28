@@ -52,7 +52,7 @@ const getPlaceholder = (step?: string, disabled?: boolean): string => {
     case 'hasInitialInventory':
       return 'Seleccioná Sí o No...';
     case 'initialInventory':
-      return 'Ingresá la cantidad de unidades en stock...';
+      return 'Ingresá la cantidad de unidades disponibles...';
     case 'completed':
       return 'Ingresa lo que quieras que te explique sobre el plan...';
     default:
