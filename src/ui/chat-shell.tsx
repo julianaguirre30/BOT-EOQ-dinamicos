@@ -626,6 +626,15 @@ export const ChatShell = () => {
   const parseNumberList = (text: string) =>
     text.trim().split(/\s+/).filter(Boolean).map(Number);
 
+  const POSITIVE_DECIMAL_REGEX = /^(?:\d+(?:\.\d+)?|\.\d+)$/;
+  const parsePositiveDecimal = (text: string): number | null => {
+    const trimmed = text.trim();
+    if (!POSITIVE_DECIMAL_REGEX.test(trimmed)) return null;
+
+    const value = Number(trimmed);
+    return Number.isFinite(value) && value > 0 ? value : null;
+  };
+
   const hasSolvedProblemInCurrentConversation = (): boolean =>
     entries.some((entry) => entry.role === 'assistant' && 'solvePayload' in entry && !!entry.solvePayload);
 
@@ -854,16 +863,16 @@ export const ChatShell = () => {
 
       if (step === 'orderCost') {
         if (/,/.test(userText)) {
-          appendAssistantMessage('Usá punto para los decimales, no coma. Ingresá un valor numérico válido para el costo de pedido.');
+          appendAssistantMessage('Usá punto para los decimales, no coma. Ingresá un valor numérico mayor que cero para el costo de reposición.');
           return;
         }
         if (containsNegativeNumber(userText)) {
           appendAssistantMessage(NEGATIVE_NUMBER_MESSAGE);
           return;
         }
-        const orderCost = Number(userText.replace(/[^0-9.\-]/g, ''));
-        if (!Number.isFinite(orderCost) || orderCost < 0) {
-          appendAssistantMessage('Ingresá un valor numérico válido para el costo de pedido.');
+        const orderCost = parsePositiveDecimal(userText);
+        if (orderCost === null) {
+          appendAssistantMessage('Ingresá un valor numérico mayor que cero para el costo de reposición (usá punto como separador decimal, ej: 10.5).');
           return;
         }
         setProblemData(prev => ({ ...prev, orderCost }));
@@ -887,16 +896,16 @@ export const ChatShell = () => {
 
       if (step === 'holdingCost') {
         if (/,/.test(userText)) {
-          appendAssistantMessage('Usá punto para los decimales, no coma. Ingresá un valor numérico positivo para el costo de almacenamiento, por ejemplo: 1.5.');
+          appendAssistantMessage('Usá punto para los decimales, no coma. Ingresá un valor numérico mayor que cero para el costo de almacenamiento, por ejemplo: 1.5.');
           return;
         }
         if (containsNegativeNumber(userText)) {
           appendAssistantMessage(NEGATIVE_NUMBER_MESSAGE);
           return;
         }
-        const holdingCost = Number(userText.replace(/[^0-9.]/g, ''));
-        if (!Number.isFinite(holdingCost) || holdingCost <= 0) {
-          appendAssistantMessage('Ingresá un valor numérico positivo para el costo de almacenamiento (usá punto como separador decimal, ej: 1.5).');
+        const holdingCost = parsePositiveDecimal(userText);
+        if (holdingCost === null) {
+          appendAssistantMessage('Ingresá un valor numérico mayor que cero para el costo de almacenamiento (usá punto como separador decimal, ej: 1.5).');
           return;
         }
         setProblemData(prev => ({ ...prev, holdingCost }));
@@ -910,16 +919,16 @@ export const ChatShell = () => {
 
       if (step === 'initialInventory') {
         if (/,/.test(userText)) {
-          appendAssistantMessage('Usá punto para los decimales, no coma. Ingresá la cantidad de unidades en stock (número mayor o igual a cero).');
+          appendAssistantMessage('Usá punto para los decimales, no coma. Ingresá la cantidad de unidades en stock (número mayor que cero).');
           return;
         }
         if (containsNegativeNumber(userText)) {
           appendAssistantMessage(NEGATIVE_NUMBER_MESSAGE);
           return;
         }
-        const initialInventory = Number(userText.replace(/[^0-9.]/g, ''));
-        if (!Number.isFinite(initialInventory) || initialInventory < 0) {
-          appendAssistantMessage('Ingresá un número mayor o igual a cero para el inventario inicial (por ejemplo: 50, 100, 200).');
+        const initialInventory = parsePositiveDecimal(userText);
+        if (initialInventory === null) {
+          appendAssistantMessage('Ingresá un número mayor que cero para el inventario inicial (por ejemplo: 50, 100, 200.5).');
           return;
         }
         const finalData = { ...problemData, initialInventory };
