@@ -640,7 +640,7 @@ export const ChatShell = () => {
     text.trim().split(/\s+/).filter(Boolean).map(Number);
 
   const NEGATIVE_NUMBER_REGEX = /-\s*\d/;
-  const NEGATIVE_NUMBER_MESSAGE = 'Ingresá números válidos, no puede haber cantidades negativas.';
+  const NEGATIVE_NUMBER_MESSAGE = 'Ingresá números válidos, no pueden existir demandas negativas.';
   const containsNegativeNumber = (text: string) => NEGATIVE_NUMBER_REGEX.test(text);
 
   const updateConversationLabel = (label: string) => {
