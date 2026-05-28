@@ -640,7 +640,9 @@ export const ChatShell = () => {
     text.trim().split(/\s+/).filter(Boolean).map(Number);
 
   const NEGATIVE_NUMBER_REGEX = /-\s*\d/;
-  const NEGATIVE_NUMBER_MESSAGE = 'Ingresá números válidos, no pueden existir demandas negativas.';
+  const NEGATIVE_DEMAND_MESSAGE = 'Ingresá números válidos, no pueden existir demandas negativas.';
+  const NEGATIVE_PERIOD_MESSAGE = 'Ingresá números válidos, no pueden existir períodos negativos.';
+  const NEGATIVE_NUMBER_MESSAGE = 'Ingresá números válidos, no pueden existir valores negativos.';
   const containsNegativeNumber = (text: string) => NEGATIVE_NUMBER_REGEX.test(text);
 
   const updateConversationLabel = (label: string) => {
@@ -792,7 +794,7 @@ export const ChatShell = () => {
 
       if (step === 'periodCount') {
         if (containsNegativeNumber(userText)) {
-          appendAssistantMessage(NEGATIVE_NUMBER_MESSAGE);
+          appendAssistantMessage(NEGATIVE_PERIOD_MESSAGE);
           return;
         }
         const periodCount = Number(normalized);
@@ -813,7 +815,7 @@ export const ChatShell = () => {
           return;
         }
         if (containsNegativeNumber(userText)) {
-          appendAssistantMessage(NEGATIVE_NUMBER_MESSAGE);
+          appendAssistantMessage(NEGATIVE_DEMAND_MESSAGE);
           return;
         }
         const values = parseNumberList(userText);
