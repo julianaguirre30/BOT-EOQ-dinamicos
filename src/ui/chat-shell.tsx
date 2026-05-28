@@ -638,6 +638,21 @@ export const ChatShell = () => {
   const hasSolvedProblemInCurrentConversation = (): boolean =>
     entries.some((entry) => entry.role === 'assistant' && 'solvePayload' in entry && !!entry.solvePayload);
 
+  // Re-hidratación de sesión: busca el solvePayload más reciente en los entries
+  // (útil al restaurar una conversación desde localStorage donde lastSolvePayload es null)
+  const getActiveSolvePayload = (): SolvePayload | null => {
+    if (lastSolvePayload) return lastSolvePayload;
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const e = entries[i];
+      if ('solvePayload' in e && e.solvePayload) return e.solvePayload;
+    }
+    return null;
+  };
+
+  // Construye el historial de conversación a partir de los entries actuales (máx. últimos 20)
+  const buildHistory = () =>
+    entries.slice(-20).map(e => ({ role: e.role as 'user' | 'assistant', content: e.text }));
+
   const NEGATIVE_NUMBER_REGEX = /-\s*\d/;
   const NEGATIVE_DEMAND_MESSAGE = 'Ingresá números válidos, no pueden existir demandas negativas.';
   const NEGATIVE_PERIOD_MESSAGE = 'Ingresá números válidos, no pueden existir períodos negativos.';
@@ -740,10 +755,17 @@ export const ChatShell = () => {
     // Con sesión activa: follow-up sobre el problema resuelto
     try {
       setIsSubmitting(true);
+      const sp = getActiveSolvePayload();
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'followup', sessionId, userText: text }),
+        body: JSON.stringify({
+          type: 'followup',
+          sessionId,
+          userText: text,
+          ...(sp ? { solverInput: sp.solverInput, solverOutput: sp.solverOutput } : {}),
+          history: buildHistory(),
+        }),
       });
       const payload = (await res.json()) as SimpleChatResponse | { error?: string };
       if (!res.ok || !('type' in payload))
@@ -990,10 +1012,17 @@ export const ChatShell = () => {
         }
         try {
           setIsSubmitting(true);
+          const sp = getActiveSolvePayload();
           const res = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'followup', sessionId, userText }),
+            body: JSON.stringify({
+              type: 'followup',
+              sessionId,
+              userText,
+              ...(sp ? { solverInput: sp.solverInput, solverOutput: sp.solverOutput } : {}),
+              history: buildHistory(),
+            }),
           });
           const payload = (await res.json()) as SimpleChatResponse | { error?: string };
           if (!res.ok || !('type' in payload))
