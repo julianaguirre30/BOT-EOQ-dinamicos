@@ -3,6 +3,9 @@ import { ZodError } from 'zod';
 
 import { handleSimpleChatRequest } from '../../../src/app/runtime/simple-handler';
 
+// Fuerza runtime Node.js (necesario para fs/promises y escritura en /tmp)
+export const runtime = 'nodejs';
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();

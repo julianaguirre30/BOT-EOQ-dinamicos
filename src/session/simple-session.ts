@@ -1,5 +1,5 @@
-import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import path from 'node:path';
+import { mkdir, readFile, readdir, rm, writeFile } from 'fs/promises';
+import path from 'path';
 
 import { SolverInput, SolverOutput } from '../contracts/eoq';
 
