@@ -580,11 +580,11 @@ export const ChatShell = () => {
     if (step === 'hasInitialInventory') {
       const yes = /^(s|si|sí|yes|y)$/i.test(value.toLowerCase().trim());
       const no  = /^(n|no)$/i.test(value.toLowerCase().trim());
-      if (!yes && !no) { appendAssistantMessage('Respondé con sí o no. ¿Tenés stock disponible antes del período 1?'); return; }
+      if (!yes && !no) { appendAssistantMessage('Respondé con sí o no. ¿Tenés mercadería disponible actualmente?'); return; }
 
       if (yes) {
         setStep('initialInventory');
-        appendAssistantMessage('¿Cuántas unidades tenés en stock al inicio del período 1?');
+        appendAssistantMessage('¿Cuántas unidades tenés disponibles?');
         return;
       }
 
@@ -637,6 +637,21 @@ export const ChatShell = () => {
 
   const hasSolvedProblemInCurrentConversation = (): boolean =>
     entries.some((entry) => entry.role === 'assistant' && 'solvePayload' in entry && !!entry.solvePayload);
+
+  // Re-hidratación de sesión: busca el solvePayload más reciente en los entries
+  // (útil al restaurar una conversación desde localStorage donde lastSolvePayload es null)
+  const getActiveSolvePayload = (): SolvePayload | null => {
+    if (lastSolvePayload) return lastSolvePayload;
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const e = entries[i];
+      if ('solvePayload' in e && e.solvePayload) return e.solvePayload;
+    }
+    return null;
+  };
+
+  // Construye el historial de conversación a partir de los entries actuales (máx. últimos 20)
+  const buildHistory = () =>
+    entries.slice(-20).map(e => ({ role: e.role as 'user' | 'assistant', content: e.text }));
 
   const NEGATIVE_NUMBER_REGEX = /-\s*\d/;
   const NEGATIVE_DEMAND_MESSAGE = 'Ingresá números válidos, no pueden existir demandas negativas.';
@@ -740,10 +755,17 @@ export const ChatShell = () => {
     // Con sesión activa: follow-up sobre el problema resuelto
     try {
       setIsSubmitting(true);
+      const sp = getActiveSolvePayload();
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'followup', sessionId, userText: text }),
+        body: JSON.stringify({
+          type: 'followup',
+          sessionId,
+          userText: text,
+          ...(sp ? { solverInput: sp.solverInput, solverOutput: sp.solverOutput } : {}),
+          history: buildHistory(),
+        }),
       });
       const payload = (await res.json()) as SimpleChatResponse | { error?: string };
       if (!res.ok || !('type' in payload))
@@ -884,10 +906,10 @@ export const ChatShell = () => {
       if (step === 'hasInitialInventory') {
         const yes = /^(s|si|sí|yes|y)$/i.test(normalized);
         const no  = /^(n|no)$/i.test(normalized);
-        if (!yes && !no) { appendAssistantMessage('Respondé con sí o no. ¿Tenés stock disponible antes del período 1?'); return; }
+        if (!yes && !no) { appendAssistantMessage('Respondé con sí o no. ¿Tenés mercadería disponible actualmente?'); return; }
         if (yes) {
           setStep('initialInventory');
-          appendAssistantMessage('¿Cuántas unidades tenés en stock al inicio del período 1?');
+          appendAssistantMessage('¿Cuántas unidades tenés disponibles?');
         } else {
           handleOptionSelect('no');
         }
@@ -910,7 +932,7 @@ export const ChatShell = () => {
         }
         setProblemData(prev => ({ ...prev, holdingCost }));
         setStep('hasInitialInventory');
-        appendAssistantOptions('¿Tenés stock disponible antes del período 1?', [
+        appendAssistantOptions('¿Tenés mercadería disponible actualmente?', [
           { label: 'Sí', value: 'sí' },
           { label: 'No', value: 'no' },
         ]);
@@ -990,10 +1012,17 @@ export const ChatShell = () => {
         }
         try {
           setIsSubmitting(true);
+          const sp = getActiveSolvePayload();
           const res = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'followup', sessionId, userText }),
+            body: JSON.stringify({
+              type: 'followup',
+              sessionId,
+              userText,
+              ...(sp ? { solverInput: sp.solverInput, solverOutput: sp.solverOutput } : {}),
+              history: buildHistory(),
+            }),
           });
           const payload = (await res.json()) as SimpleChatResponse | { error?: string };
           if (!res.ok || !('type' in payload))

@@ -54,6 +54,13 @@ export const FollowUpRequestSchema = z.object({
   type: z.literal('followup'),
   sessionId: z.string().min(1),
   userText: z.string().min(1),
+  // Opcionales: el cliente los manda para re-hidratar la sesión si se perdió de memoria
+  solverInput:  z.unknown().optional(),
+  solverOutput: z.unknown().optional(),
+  history: z.array(z.object({
+    role: z.enum(['user', 'assistant']),
+    content: z.string(),
+  })).optional(),
 });
 
 export const SimpleChatRequestSchema = z.discriminatedUnion('type', [
@@ -249,14 +256,27 @@ export const handleSimpleChatRequest = async (body: unknown): Promise<SimpleChat
   }
 
   // ── Follow-up ─────────────────────────────────────────────────────────────
-  const session = await getSession(req.sessionId);
+  let session = await getSession(req.sessionId);
+
+  // Re-hidratación: el cliente puede enviar solverInput + solverOutput + history
+  // para reconstruir la sesión cuando se perdió del Map en memoria (cold start).
   if (!session) {
-    return {
-      type: 'followup',
-      sessionId: req.sessionId,
-      message: 'No encontré la sesión. Por favor iniciá un nuevo problema.',
-      suggestsNewProblem: true,
-    };
+    if (req.solverInput && req.solverOutput) {
+      session = {
+        sessionId:    req.sessionId,
+        solverInput:  req.solverInput  as SolverInput,
+        solverOutput: req.solverOutput as SolverOutput,
+        history:      ((req.history ?? []) as ConversationMessage[]),
+      };
+      await saveSession(session);
+    } else {
+      return {
+        type: 'followup',
+        sessionId: req.sessionId,
+        message: 'No encontré la sesión. Por favor iniciá un nuevo problema.',
+        suggestsNewProblem: true,
+      };
+    }
   }
 
   if (isAskingForAnotherExample(req.userText)) {
