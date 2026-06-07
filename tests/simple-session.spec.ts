@@ -1,10 +1,6 @@
-import { mkdtemp, rm } from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
-
 import { describe, expect, it } from 'vitest';
 
-import { FileSessionRepository, SimpleSession } from '../src/session/simple-session';
+import { getSession, saveSession, SimpleSession } from '../src/session/simple-session';
 
 const buildSession = (sessionId: string): SimpleSession => ({
   sessionId,
@@ -40,22 +36,20 @@ const buildSession = (sessionId: string): SimpleSession => ({
   ],
 });
 
-describe('FileSessionRepository', () => {
-  it('persists sessions across repository instances', async () => {
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'simplex-sessions-'));
-    try {
-      const firstRepo = new FileSessionRepository(dir);
-      const session = buildSession('session-1');
-      await firstRepo.set(session);
+describe('InMemorySession', () => {
+  it('persists and retrieves a session', async () => {
+    const session = buildSession('session-test-1');
+    await saveSession(session);
 
-      const secondRepo = new FileSessionRepository(dir);
-      const restored = await secondRepo.get('session-1');
+    const restored = await getSession('session-test-1');
 
-      expect(restored?.sessionId).toBe('session-1');
-      expect(restored?.history).toHaveLength(2);
-      expect(restored?.solverOutput.mathematicalArtifacts.costBreakdown.totalRelevantCost).toBe(40);
-    } finally {
-      await rm(dir, { recursive: true, force: true });
-    }
+    expect(restored?.sessionId).toBe('session-test-1');
+    expect(restored?.history).toHaveLength(2);
+    expect(restored?.solverOutput.mathematicalArtifacts.costBreakdown.totalRelevantCost).toBe(40);
+  });
+
+  it('returns undefined for unknown session', async () => {
+    const result = await getSession('session-does-not-exist');
+    expect(result).toBeUndefined();
   });
 });
