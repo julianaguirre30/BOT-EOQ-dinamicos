@@ -237,16 +237,15 @@ const AssistantMessage = ({
   onOptionSelect?: (value: string) => void;
 }) => {
   const P = getP(isDark);
-  const fullText = entry.text;
+  const fullText   = entry.text;
+  const isSolveMsg = !!entry.solvePayload;
 
-  // Solo anima mensajes nuevos (isLast al momento de montar).
-  // Mensajes históricos arrancan ya completos.
-  const shouldAnimate = useRef(!!isLast).current;
+  // Los mensajes de resultado (con card) no usan typewriter — la card tiene todo el contenido
+  const shouldAnimate = useRef(!!isLast && !isSolveMsg).current;
 
   const [displayed, setDisplayed]   = useState(shouldAnimate ? 0 : fullText.length);
   const [typingDone, setTypingDone] = useState(!shouldAnimate);
 
-  // Si el mensaje deja de ser "último" (llegó otro), terminar animación instantáneamente
   useEffect(() => {
     if (!isLast && !typingDone) {
       setDisplayed(fullText.length);
@@ -254,27 +253,36 @@ const AssistantMessage = ({
     }
   }, [isLast, typingDone, fullText.length]);
 
-  // Tick del typewriter
   useEffect(() => {
     if (typingDone) return;
-    if (displayed >= fullText.length) {
-      setTypingDone(true);
-      return;
-    }
-    // Velocidad adaptativa: textos largos avanzan más chars por tick
+    if (displayed >= fullText.length) { setTypingDone(true); return; }
     const charsPerTick = fullText.length > 300 ? 4 : fullText.length > 150 ? 2 : 1;
     const delay        = fullText.length > 300 ? 10 : 14;
-
     const timer = setTimeout(() => {
       setDisplayed(d => Math.min(d + charsPerTick, fullText.length));
     }, delay);
     return () => clearTimeout(timer);
   }, [displayed, typingDone, fullText]);
 
-  const visibleText  = fullText.slice(0, displayed);
-  const showCursor   = !typingDone;
-  const showOptions  = typingDone && entry.options && entry.options.length > 0;
-  const showCard     = typingDone && !!entry.solvePayload;
+  const visibleText = fullText.slice(0, displayed);
+  const showCursor  = !typingDone;
+  const showOptions = typingDone && entry.options && entry.options.length > 0;
+
+  // Mensajes con resultado: sin burbuja de texto, solo la card
+  if (isSolveMsg) {
+    return (
+      <div
+        className="msg-turn-bot"
+        style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', marginBottom: '28px', animation: 'fadeSlideIn 0.35s cubic-bezier(0.4,0,0.2,1)' }}
+        data-testid="chat-turn-assistant"
+      >
+        {isLast ? <BotAvatar /> : <div className="bot-avatar-placeholder" style={{ width: '56px', minWidth: '56px', flexShrink: 0 }} />}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <SolveResultCard solvePayload={entry.solvePayload!} isDark={isDark} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -317,9 +325,6 @@ const AssistantMessage = ({
             </div>
           )}
         </div>
-
-        {/* La tarjeta de resultado aparece solo cuando terminó de escribir */}
-        {showCard && <SolveResultCard solvePayload={entry.solvePayload!} isDark={isDark} />}
       </div>
     </div>
   );
