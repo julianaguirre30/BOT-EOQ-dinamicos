@@ -20,6 +20,7 @@ describe('loadLlmInterpreterConfig', () => {
           'EOQ_INTERPRETER_API_KEY=test-key',
           'EOQ_INTERPRETER_MODEL=llama-3.3-70b-versatile',
           'EOQ_INTERPRETER_TIMEOUT_MS=12000',
+          'EOQ_INTERPRETER_MAX_TOKENS=3072',
         ].join('\n'),
       );
 
@@ -31,6 +32,7 @@ describe('loadLlmInterpreterConfig', () => {
         baseUrl: 'https://api.groq.com/openai/v1',
         model: 'llama-3.3-70b-versatile',
         timeoutMs: 12000,
+        maxTokens: 3072,
       });
     } finally {
       rmSync(directory, { recursive: true, force: true });
@@ -44,5 +46,14 @@ describe('loadLlmInterpreterConfig', () => {
     expect(() => loadLlmInterpreterConfig({ env: {}, envFilePath: 'missing.env' })).toThrow(
       /EOQ_INTERPRETER_API_KEY/,
     );
+  });
+
+  it('uses a larger default for conversational responses', () => {
+    const config = loadLlmInterpreterConfig({
+      env: { EOQ_INTERPRETER_API_KEY: 'test-key' },
+      envFilePath: 'missing.env',
+    });
+
+    expect(config.maxTokens).toBe(2048);
   });
 });

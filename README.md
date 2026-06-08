@@ -36,8 +36,9 @@ Optional:
 
 - `EOQ_INTERPRETER_PROVIDER` or `LLM_PROVIDER` - defaults to `groq`
 - `EOQ_INTERPRETER_BASE_URL` or `GROQ_BASE_URL` - defaults to `https://api.groq.com/openai/v1`
-- `EOQ_INTERPRETER_MODEL` or `GROQ_MODEL` - defaults to `llama-3.3-70b-versatile`
-- `EOQ_INTERPRETER_TIMEOUT_MS` or `LLM_TIMEOUT_MS` - defaults to `15000`
+- `EOQ_INTERPRETER_MODEL` or `GROQ_MODEL` - defaults to `llama-3.1-8b-instant`
+- `EOQ_INTERPRETER_TIMEOUT_MS` or `LLM_TIMEOUT_MS` - defaults to `30000`
+- `EOQ_INTERPRETER_MAX_TOKENS` or `LLM_MAX_TOKENS` - defaults to `2048`
 
 ## Scripts
 

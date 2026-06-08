@@ -9,6 +9,7 @@ const LlmInterpreterConfigSchema = z.object({
   baseUrl: z.string().url(),
   model: z.string().min(1),
   timeoutMs: z.number().int().positive(),
+  maxTokens: z.number().int().positive(),
 });
 
 export type LlmInterpreterConfig = z.infer<typeof LlmInterpreterConfigSchema>;
@@ -17,6 +18,7 @@ const DEFAULT_ENV_FILE_PATH = '.env';
 const DEFAULT_MODEL = 'llama-3.1-8b-instant';
 const DEFAULT_BASE_URL = 'https://api.groq.com/openai/v1';
 const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_MAX_TOKENS = 2_048;
 
 const readOptional = (env: EnvMap, keys: string[]): string | undefined => {
   for (const key of keys) {
@@ -82,6 +84,19 @@ export const loadLlmInterpreterConfig = ({
     );
   }
 
+  const maxTokensRaw =
+    readOptional(mergedEnv, ['EOQ_INTERPRETER_MAX_TOKENS', 'LLM_MAX_TOKENS']) ??
+    String(DEFAULT_MAX_TOKENS);
+  const maxTokens = Number.parseInt(maxTokensRaw, 10);
+
+  if (!Number.isFinite(maxTokens) || maxTokens <= 0) {
+    throw new InterpreterFailure(
+      'Invalid LLM interpreter max tokens configuration.',
+      'missing_config',
+      'EOQ_INTERPRETER_MAX_TOKENS',
+    );
+  }
+
   return LlmInterpreterConfigSchema.parse({
     provider,
     apiKey: readRequired(mergedEnv, ['EOQ_INTERPRETER_API_KEY', 'GROQ_API_KEY'], 'EOQ_INTERPRETER_API_KEY'),
@@ -89,5 +104,6 @@ export const loadLlmInterpreterConfig = ({
       readOptional(mergedEnv, ['EOQ_INTERPRETER_BASE_URL', 'GROQ_BASE_URL']) ?? DEFAULT_BASE_URL,
     model: readOptional(mergedEnv, ['EOQ_INTERPRETER_MODEL', 'GROQ_MODEL']) ?? DEFAULT_MODEL,
     timeoutMs,
+    maxTokens,
   });
 };

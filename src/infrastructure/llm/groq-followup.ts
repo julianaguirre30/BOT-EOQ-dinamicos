@@ -269,7 +269,12 @@ const groqPostOnce = async (
     const response = await fetch(`${config.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: config.model, temperature: 0.5, max_tokens: 512, messages }),
+      body: JSON.stringify({
+        model: config.model,
+        temperature: 0.5,
+        max_tokens: config.maxTokens,
+        messages,
+      }),
       signal: controller.signal,
     });
     if (response.status === 429) {
