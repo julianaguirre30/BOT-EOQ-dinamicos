@@ -95,7 +95,11 @@ export const ChatComposer = ({
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      e.currentTarget.form?.requestSubmit();
+      // Mientras el bot está pensando (isSubmitting) se puede seguir escribiendo,
+      // pero el envío queda bloqueado hasta que termine la respuesta en curso.
+      if (canSend) {
+        e.currentTarget.form?.requestSubmit();
+      }
     }
   };
 
@@ -107,12 +111,11 @@ export const ChatComposer = ({
   };
 
   // Devuelve el foco al campo de texto cada vez que aparece un mensaje nuevo
-  // (entriesCount cambia) o cuando el campo vuelve a habilitarse tras un fetch.
-  // Cubre los tres disparadores de pérdida de foco: envío por click (el botón
-  // se queda con el foco), pasos asíncronos (el campo se deshabilita) y
-  // respuestas por chip Sí/No (no pasan por el <form> en absoluto).
+  // (entriesCount cambia) o cuando el campo vuelve a habilitarse. El campo ya
+  // no se deshabilita mientras el bot está pensando (isSubmitting), así que
+  // el usuario puede seguir escribiendo su próximo mensaje sin esperar.
   useEffect(() => {
-    if (!disabled && !isSubmitting) {
+    if (!disabled) {
       taRef.current?.focus();
     }
   }, [disabled, isSubmitting, entriesCount]);
@@ -173,7 +176,7 @@ export const ChatComposer = ({
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
               placeholder={getPlaceholder(step, disabled)}
-              disabled={disabled || isSubmitting}
+              disabled={disabled}
               rows={1}
               style={{
                 flex: 1, resize: 'none', background: 'transparent',

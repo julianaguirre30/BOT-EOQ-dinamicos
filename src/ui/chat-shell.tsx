@@ -790,6 +790,7 @@ export const ChatShell = () => {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
+      if (isSubmitting) return; // ya hay un envío en curso — el campo sigue editable pero no se reenvía
       const userText = draft.trim();
       if (!userText) return;
       if (step === 'welcome') return;
