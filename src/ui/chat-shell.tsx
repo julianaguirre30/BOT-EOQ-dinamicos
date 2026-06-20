@@ -1276,6 +1276,7 @@ export const ChatShell = () => {
               isSubmitting={isSubmitting}
               disabled={false}
               isDark={isDark}
+              entriesCount={entries.length}
               onChange={setDraft}
               onSubmit={handleSubmit}
               onResetProblem={resetConversation}

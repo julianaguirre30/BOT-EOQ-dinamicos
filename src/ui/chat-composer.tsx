@@ -71,7 +71,7 @@ const GLOBAL_STYLES = `
 
 export const ChatComposer = ({
   draft, sessionId, step, pendingResetProblem, error,
-  isSubmitting, disabled, isDark, onChange, onSubmit, onResetProblem,
+  isSubmitting, disabled, isDark, entriesCount, onChange, onSubmit, onResetProblem,
 }: {
   draft: string;
   sessionId?: string;
@@ -81,6 +81,8 @@ export const ChatComposer = ({
   isSubmitting: boolean;
   disabled?: boolean;
   isDark?: boolean;
+  /** Cantidad de mensajes en el feed — cualquier cambio (texto o chip) refoca el input */
+  entriesCount?: number;
   onChange: (v: string) => void;
   onSubmit: (e: FormEvent<HTMLFormElement>) => void;
   onResetProblem?: () => void;
@@ -104,14 +106,16 @@ export const ChatComposer = ({
     ta.style.height = Math.min(ta.scrollHeight, 160) + 'px';
   };
 
-  // Devuelve el foco al campo de texto en cuanto vuelve a estar habilitado:
-  // cubre tanto el caso de envío por click (el botón se queda con el foco)
-  // como el de pasos asíncronos donde el campo se deshabilita mientras espera la respuesta.
+  // Devuelve el foco al campo de texto cada vez que aparece un mensaje nuevo
+  // (entriesCount cambia) o cuando el campo vuelve a habilitarse tras un fetch.
+  // Cubre los tres disparadores de pérdida de foco: envío por click (el botón
+  // se queda con el foco), pasos asíncronos (el campo se deshabilita) y
+  // respuestas por chip Sí/No (no pasan por el <form> en absoluto).
   useEffect(() => {
     if (!disabled && !isSubmitting) {
       taRef.current?.focus();
     }
-  }, [disabled, isSubmitting]);
+  }, [disabled, isSubmitting, entriesCount]);
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     onSubmit(e);
