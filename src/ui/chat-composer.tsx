@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, KeyboardEvent, useRef, useState } from 'react';
+import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 const LIGHT = {
   surface:   'rgba(255,255,255,0.65)',
@@ -104,6 +104,21 @@ export const ChatComposer = ({
     ta.style.height = Math.min(ta.scrollHeight, 160) + 'px';
   };
 
+  // Devuelve el foco al campo de texto en cuanto vuelve a estar habilitado:
+  // cubre tanto el caso de envío por click (el botón se queda con el foco)
+  // como el de pasos asíncronos donde el campo se deshabilita mientras espera la respuesta.
+  useEffect(() => {
+    if (!disabled && !isSubmitting) {
+      taRef.current?.focus();
+    }
+  }, [disabled, isSubmitting]);
+
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    onSubmit(e);
+    // Refoco inmediato para pasos síncronos del wizard (sin fetch de por medio).
+    requestAnimationFrame(() => taRef.current?.focus());
+  };
+
   return (
     <div>
       <style>{GLOBAL_STYLES}</style>
@@ -118,7 +133,7 @@ export const ChatComposer = ({
         </div>
       )}
 
-      <form onSubmit={onSubmit} data-testid="chat-composer">
+      <form onSubmit={handleSubmit} data-testid="chat-composer">
         <div style={{ position: 'relative', borderRadius: '16px' }}>
 
           {/* Glow ring */}

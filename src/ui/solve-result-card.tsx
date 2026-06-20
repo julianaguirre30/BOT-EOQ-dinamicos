@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { SolvePayload } from './types';
 import {
   DataTable, PlanCards, CostAnalysis, DemandTimeline, ResponseSection,
@@ -29,6 +30,20 @@ export const SolveResultCard = ({
   const setupCost = hasSetup
     ? ((solverInput as Extract<typeof solverInput, { branch: 'with_setup'; variant: 'scalar' }>).setupCost ?? 0)
     : 0;
+
+  // ── Scroll del plan: ocultar degradado/chevron cuando ya se llegó al final ──
+  const planScrollRef = useRef<HTMLDivElement>(null);
+  const [planAtBottom, setPlanAtBottom] = useState(false);
+
+  const checkPlanScrollPosition = () => {
+    const el = planScrollRef.current;
+    if (!el) return;
+    setPlanAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 4);
+  };
+
+  useEffect(() => {
+    checkPlanScrollPosition();
+  }, [demandSchedule.length]);
 
   // ── Mapa de períodos con pedido ──────────────────────────────────────────
   const orderMap = new Map(replenishmentPlan.map((s) => [s.period, s]));
@@ -137,7 +152,9 @@ export const SolveResultCard = ({
             `}</style>
             <div style={{ position: 'relative' }}>
               <div
+                ref={planScrollRef}
                 className="plan-scroll"
+                onScroll={checkPlanScrollPosition}
                 style={{
                   maxHeight: '260px',
                   overflowY: 'scroll',
@@ -149,28 +166,30 @@ export const SolveResultCard = ({
                 <PlanCards periods={planPeriods} isDark={isDark} />
               </div>
 
-              {/* Degradado inferior */}
-              <div style={{
-                position: 'absolute', bottom: 0, left: 0, right: '10px',
-                height: '52px', pointerEvents: 'none',
-                background: isDark
-                  ? 'linear-gradient(to bottom, transparent, rgba(9,21,42,0.9))'
-                  : 'linear-gradient(to bottom, transparent, rgba(244,250,255,0.95))',
-                borderRadius: '0 0 10px 10px',
-              }} />
-
-              {/* Chevron animado */}
-              <div style={{
-                position: 'absolute', bottom: '6px', left: '50%',
-                transform: 'translateX(-50%)',
-                pointerEvents: 'none',
-                animation: 'scrollBounce 1.4s ease-in-out infinite',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
-              }}>
-                <svg width="20" height="12" viewBox="0 0 20 12" fill="none">
-                  <path d="M2 2l8 8 8-8" stroke={isDark ? '#4d8fd4' : '#1a5fbc'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
+              {/* Degradado + chevron — solo mientras quede contenido por debajo */}
+              {!planAtBottom && (
+                <>
+                  <div style={{
+                    position: 'absolute', bottom: 0, left: 0, right: '10px',
+                    height: '52px', pointerEvents: 'none',
+                    background: isDark
+                      ? 'linear-gradient(to bottom, transparent, rgba(9,21,42,0.9))'
+                      : 'linear-gradient(to bottom, transparent, rgba(244,250,255,0.95))',
+                    borderRadius: '0 0 10px 10px',
+                  }} />
+                  <div style={{
+                    position: 'absolute', bottom: '6px', left: '50%',
+                    transform: 'translateX(-50%)',
+                    pointerEvents: 'none',
+                    animation: 'scrollBounce 1.4s ease-in-out infinite',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
+                  }}>
+                    <svg width="20" height="12" viewBox="0 0 20 12" fill="none">
+                      <path d="M2 2l8 8 8-8" stroke={isDark ? '#4d8fd4' : '#1a5fbc'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                </>
+              )}
             </div>
           </>
         ) : (
